@@ -45,13 +45,36 @@ export const pickImage = async (): Promise<string | null> => {
 
 export const uploadImageToCloudinary = async (uri: string, folder: string): Promise<string | null> => {
   try {
-    // Chuyển đổi URI thành blob
-    const response = await fetch(uri);
-    const blob = await response.blob();
 
-    // Tạo URL tải lên Cloudinary
+    const fileExtension = uri.split('.').pop() || 'jpg';
+    const fileName = `image.${fileExtension}`;
+    
+    let mimeType;
+    switch (fileExtension.toLowerCase()) {
+      case 'jpg':
+      case 'jpeg':
+        mimeType = 'image/jpeg';
+        break;
+      case 'png':
+        mimeType = 'image/png';
+        break;
+      case 'gif':
+        mimeType = 'image/gif';
+        break;
+      default:
+        mimeType = 'image/jpeg';
+    }
+    
+    const source = {
+      uri: uri,
+      type: mimeType,
+      name: fileName
+    };
+    
+    // Tạo FormData cho request
     const formData = new FormData();
-    formData.append('file', blob, `image.jpg`);
+    // @ts-ignore
+    formData.append('file', source);
     formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
     formData.append('folder', folder);
 
@@ -59,6 +82,10 @@ export const uploadImageToCloudinary = async (uri: string, folder: string): Prom
     const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/upload`, {
       method: 'POST',
       body: formData,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'multipart/form-data'
+      }
     });
 
     const data = await uploadResponse.json();
