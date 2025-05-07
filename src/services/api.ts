@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const API_URL = 'http://192.168.2.5:3000/api';
+export const API_URL = 'http://192.168.1.9:3000/api';
 
 // Headers mặc định cho các request
 const defaultHeaders = {
@@ -123,7 +123,7 @@ export const api = {
     updateAvatar: async (avatarUrl: string): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/users/avatar`, {
+        const response = await fetch(`${API_URL}/users/update_avatar`, {
           method: 'PATCH',
           headers,
           body: JSON.stringify({ avatar: avatarUrl }),
@@ -193,6 +193,8 @@ export const api = {
       try {
         const headers = await getAuthHeaders();
         const responseBody = { response };
+        
+        console.log(`Responding to friend request: ${requestId} with action: ${response}`);
         
         const apiResponse = await fetch(`${API_URL}/friendrelations/request/${requestId}`, {
           method: 'PUT',

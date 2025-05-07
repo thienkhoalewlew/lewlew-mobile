@@ -9,6 +9,7 @@ export interface User {
   pendingRequestId?: string; // ID của lời mời kết bạn đang chờ xử lý
   createdAt: Date;
   token?: string; // JWT token từ backend
+  requestId?: string; // ID của lời mời kết bạn (nếu có)
 }
 
 export interface Post {

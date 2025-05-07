@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   FlatList,
   ScrollView,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +22,7 @@ import { usePostStore } from '../../store/postStore';
 import { colors } from '../../constants/colors';
 import { Post } from '../../types';
 import { getCurrentUserProfile, updateUserAvatar } from '../../services/userService';
+import { pickImage } from '../../services/cloudinaryService';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -70,26 +72,32 @@ export default function ProfileScreen() {
   };
 
   const handleEditProfile = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-  
-    if (!result.canceled && user) {
-      const avatarUrl = result.assets[0].uri;
-  
-      const res = await updateUserAvatar(avatarUrl);
+    try {
+      // Sử dụng hàm pickImage từ cloudinaryService để chọn ảnh
+      const imageUri = await pickImage();
+      
+      if (!imageUri || !user) return;
+      
+      // Hiển thị thông báo đang tải
+      setLoading(true);
+      
+      // Sử dụng hàm updateUserAvatar đã cập nhật để tải lên Cloudinary  
+      const res = await updateUserAvatar(imageUri);
+      
+      setLoading(false);
   
       if (res.error) {
         Alert.alert('Error', res.error);
       } else {
-        Alert.alert('Success', 'Update avatar successfully!');
-        // Reload lại profile từ backend
+        Alert.alert('Success', 'Updated profile picture successfully!');
+        // Tải lại profile từ backend
         const profile = await getCurrentUserProfile();
         setUser(profile);
       }
+} catch (error) {
+      setLoading(false);
+      Alert.alert('Error', 'An error occurred while updating the profile picture');
+      console.error('Error updating avatar:', error);
     }
   };
 
