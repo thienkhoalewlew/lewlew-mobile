@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Post, PostState, Region } from '../types';
-import { getNearbyPosts, getFriendPosts, createPost as apiCreatePost } from '../services/postService';
+import { getNearbyPosts, getFriendPosts, createPost as apiCreatePost, getUserPosts } from '../services/postService';
 
 export const usePostStore = create<PostState>()(
   persist(
@@ -15,36 +15,50 @@ export const usePostStore = create<PostState>()(
         set({ isLoading: true, error: null });
         
         try {
-          // Gọi API để tạo bài đăng
-          const newPost = await apiCreatePost(postData);
+          // Call service function to create post
+          const result = await apiCreatePost(postData);
           
-          if (newPost) {
-            set(state => ({
-              posts: [newPost, ...state.posts],
-              isLoading: false
-            }));
-            return newPost;
-          } else {
-            // Tạm thời tạo bài đăng local khi chưa có API
-            const localPost: Post = {
-              id: `local_${Date.now()}`,
-              ...postData,
-              likes: [],
-              comments: [],
-              createdAt: new Date(),
+          // Check if there was an error
+          if ('error' in result && result.error) {
+            set({
+              error: result.error,
+              isLoading: false,
+            });
+            return null;
+          }
+          
+          // If successful, extract the post from the data property
+          if ('data' in result && result.data) {
+            const newPost: Post = {
+              id: result.data.id,
+              userId: result.data.userId,
+              imageUrl: result.data.imageUrl,
+              caption: result.data.caption,
+              location: result.data.location,
+              likes: result.data.likes || [],
+              comments: result.data.comments || [],
+              createdAt: result.data.createdAt,
             };
             
+            // Add new post to the beginning of the posts array
             set(state => ({
-              posts: [localPost, ...state.posts],
-              isLoading: false
+              posts: [newPost, ...state.posts],
+              isLoading: false,
             }));
             
-            return localPost;
+            return newPost;
           }
+          
+          // If we get here, something unexpected happened
+          set({
+            error: 'Unexpected response format from server',
+            isLoading: false,
+          });
+          return null;
         } catch (error) {
-          set({ 
-            error: error instanceof Error ? error.message : 'Failed to create post', 
-            isLoading: false 
+          set({
+            error: error instanceof Error ? error.message : 'Failed to create post',
+            isLoading: false,
           });
           return null;
         }
@@ -105,15 +119,39 @@ export const usePostStore = create<PostState>()(
         }
       },
 
-      getFriendPosts: async (friendIds: string[]) => {
+      getFriendPosts: async () => {
         set({ isLoading: true, error: null });
         
         try {
-          const friendPosts = await getFriendPosts(friendIds);
+          const friendPosts = await getFriendPosts();
           set({ posts: friendPosts, isLoading: false });
           return friendPosts;
         } catch (error) {
           set({ error: 'Failed to get friend posts', isLoading: false });
+          return [];
+        }
+      },
+
+      getUserPosts: async () => {
+        const state = get();
+        set({ isLoading: true });
+        
+        try {
+          const userPosts = await getUserPosts();
+          
+          // Merge posts với state hiện tại, tránh trùng lặp
+          const existingPostIds = new Set(state.posts.map(p => p.id));
+          const newPosts = userPosts.filter(p => !existingPostIds.has(p.id));
+          
+          set({ 
+            posts: [...state.posts, ...newPosts],
+            isLoading: false 
+          });
+          
+          return userPosts;
+        } catch (error) {
+          console.error('Error fetching user posts:', error);
+          set({ isLoading: false });
           return [];
         }
       }

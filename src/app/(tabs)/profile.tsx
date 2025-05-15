@@ -13,33 +13,34 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import * as ImagePicker from 'expo-image-picker';
 import { Settings, LogOut, Edit2, Grid, Map, Image as ImageIcon } from 'lucide-react-native';
+import { RefreshControl } from 'react-native';
 
 import { Button } from '../../components/Button';
 import { useAuthStore } from '../../store/authStore';
 import { usePostStore } from '../../store/postStore';
+import { useUserStore } from '../../store/userStore';
 import { colors } from '../../constants/colors';
 import { Post } from '../../types';
-import { getCurrentUserProfile, updateUserAvatar } from '../../services/userService';
 import { pickImage } from '../../services/cloudinaryService';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { logout, updateProfile, token } = useAuthStore();
-  const { posts } = usePostStore();
+  const { logout, token } = useAuthStore();
+  const { posts, getUserPosts, isLoading: postsLoading } = usePostStore();
+  const { currentUser, isLoading: userLoading, error, updateUserAvatar, getCurrentUserProfile } = useUserStore();
 
-  const [user, setUser] = useState<any>(null);
-  const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
-  const [loading, setLoading] = useState(false);
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
-      setLoading(true);
       const profile = await getCurrentUserProfile();
-      setUser(profile);
-      setLoading(false);
+      // Tải posts ngay sau khi có user profile
+      if (profile) {
+        await loadUserPosts();
+      }
     };
     if (token) {
       fetchProfile();
@@ -47,11 +48,37 @@ export default function ProfileScreen() {
   }, [token]);
 
   useEffect(() => {
-    if (user) {
-      const filteredPosts = posts.filter((post: Post) => post.userId === user.id);
+    if (currentUser) {
+      // Debug: In ra toàn bộ posts để kiểm tra
+      console.log('All posts in store:', posts.map(p => ({id: p.id, userId: p.userId})));
+      console.log('Current user:', {id: currentUser.id, fullname: currentUser.fullname});
+      
+      const filteredPosts = posts.filter(post => post.userId === currentUser.id);
+      console.log('Filtered posts count:', filteredPosts.length);
       setUserPosts(filteredPosts);
     }
-  }, [user, posts]);
+  }, [currentUser, posts]);
+
+  // Tải bài viết người dùng khi component mount và khi user thay đổi
+  useEffect(() => {
+    if (currentUser) {
+      loadUserPosts();
+    }
+  }, [currentUser]);
+  
+  // Hàm tải bài viết người dùng
+  const loadUserPosts = async () => {
+    const result = await getUserPosts();
+    console.log('User Posts API result:', result);
+  };
+
+  // Hàm refresh để kéo xuống làm mới
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    const result = await getUserPosts();
+    console.log('Refreshed User Posts:', result);
+    setRefreshing(false);
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -76,26 +103,19 @@ export default function ProfileScreen() {
       // Sử dụng hàm pickImage từ cloudinaryService để chọn ảnh
       const imageUri = await pickImage();
       
-      if (!imageUri || !user) return;
+      if (!imageUri || !currentUser) return;
       
-      // Hiển thị thông báo đang tải
-      setLoading(true);
+      // Sử dụng hàm updateUserAvatar từ userStore để tải lên Cloudinary  
+      await updateUserAvatar(imageUri);
       
-      // Sử dụng hàm updateUserAvatar đã cập nhật để tải lên Cloudinary  
-      const res = await updateUserAvatar(imageUri);
-      
-      setLoading(false);
-  
-      if (res.error) {
-        Alert.alert('Error', res.error);
+      if (error) {
+        Alert.alert('Error', error);
       } else {
         Alert.alert('Success', 'Updated profile picture successfully!');
         // Tải lại profile từ backend
-        const profile = await getCurrentUserProfile();
-        setUser(profile);
+        await getCurrentUserProfile();
       }
-} catch (error) {
-      setLoading(false);
+    } catch (error) {
       Alert.alert('Error', 'An error occurred while updating the profile picture');
       console.error('Error updating avatar:', error);
     }
@@ -114,7 +134,7 @@ export default function ProfileScreen() {
     </TouchableOpacity>
   );
 
-  if (loading) {
+  if (userLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Text>Loading profile...</Text>
@@ -122,7 +142,7 @@ export default function ProfileScreen() {
     );
   }
 
-  if (!user) return null;
+  if (!currentUser) return null;
 
   return (
     <SafeAreaView style={styles.container} edges={['right', 'left']}>
@@ -143,11 +163,18 @@ export default function ProfileScreen() {
         </View>
       </View>
       
-      <ScrollView>
+      <ScrollView
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={handleRefresh} 
+          />
+        }
+      >
         <View style={styles.profileHeader}>
-          <View style={styles.profileImageContainer}>
+          <View style={styles. profileImageContainer}>
             <Image 
-              source={{ uri: user.profileImage }} 
+              source={{ uri: currentUser.avatar }} 
               style={styles.profileImage} 
             />
             <TouchableOpacity 
@@ -158,9 +185,9 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
           
-          <Text style={styles.username}>{user.username}</Text>
-          {user.bio ? (
-            <Text style={styles.bio}>{user.bio}</Text>
+          <Text style={styles.username}>{currentUser.fullname || 'Unknown User'}</Text>
+          {currentUser.bio ? (
+            <Text style={styles.bio}>{currentUser.bio}</Text>
           ) : (
             <TouchableOpacity>
               <Text style={styles.addBioText}>Add a bio</Text>
@@ -169,11 +196,7 @@ export default function ProfileScreen() {
           
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{userPosts.length}</Text>
-              <Text style={styles.statLabel}>Posts</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user.friendIds?.length ?? 0}</Text>
+              <Text style={styles.statValue}>{currentUser.friendCount ?? 0}</Text>
               <Text style={styles.statLabel}>Friends</Text>
             </View>
           </View>
@@ -202,7 +225,12 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        {viewMode === 'grid' ? (
+        {postsLoading && !refreshing ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Loading posts...</Text>
+          </View>
+        ) : viewMode === 'grid' ? (
           userPosts.length > 0 ? (
             <FlatList
               data={userPosts}
@@ -243,6 +271,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: colors.textLight,
   },
   header: {
     flexDirection: 'row',
@@ -311,8 +349,7 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    width: '60%',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     marginTop: 8,
   },
   statItem: {

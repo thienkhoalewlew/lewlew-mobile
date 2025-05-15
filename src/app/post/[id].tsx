@@ -19,8 +19,8 @@ import { Heart, MessageCircle, Navigation, MoreHorizontal, Send, ArrowLeft } fro
 import { usePostStore } from '../../store/postStore';
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../constants/colors';
-// findUserById is not available; replace usages with null or fallback logic
-import { Comment, User } from '../../types';
+import { Comment } from '../../types';
+import { ensureStringId } from '@/src/services/postService';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -85,7 +85,8 @@ export default function PostDetailScreen() {
   };
   
   const handleViewProfile = (userId: string) => {
-    router.push(`/profile/${userId}`);
+    const stringId = ensureStringId(userId);
+    router.push(`/profile/${stringId}`);
   };
   
   const formatDate = (dateString: string) => {
@@ -100,13 +101,18 @@ export default function PostDetailScreen() {
   };
   
   const renderCommentItem = ({ item }: { item: Comment }) => {
-    // TODO: Replace with actual user lookup logic
-    const commentUser = { profileImage: '', username: '' } as User;
+    const commentUser = { 
+      username: 'User',
+      avatar: ''
+    };
     
     return (
       <View style={styles.commentItem}>
         <TouchableOpacity onPress={() => handleViewProfile(item.userId)}>
-          <Image source={{ uri: commentUser.profileImage }} style={styles.commentAvatar} />
+          <Image 
+            source={commentUser.avatar ? { uri: commentUser.avatar } : { uri: 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60' }} 
+            style={styles.commentAvatar} 
+          />
         </TouchableOpacity>
         <View style={styles.commentContent}>
           <View style={styles.commentHeader}>
@@ -123,9 +129,10 @@ export default function PostDetailScreen() {
   
   if (!post) return null;
 
-  // TODO: Replace with actual user lookup logic
-  const postUser = { profileImage: '', username: '' } as User;
-  if (!postUser) return null;
+  const postUser = { 
+    username: 'User', 
+    avatar: ''
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['right', 'left']}>
@@ -160,9 +167,12 @@ export default function PostDetailScreen() {
               <View style={styles.postHeader}>
                 <TouchableOpacity 
                   style={styles.userInfo}
-                  onPress={() => handleViewProfile(post.userId)}
+                  onPress={() => handleViewProfile(ensureStringId(post.userId))}
                 >
-                  <Image source={{ uri: postUser.profileImage }} style={styles.avatar} />
+                  <Image 
+                    source={postUser.avatar ? { uri: postUser.avatar } : { uri: 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60' }} 
+                    style={styles.avatar} 
+                  />
                   <View>
                     <Text style={styles.username}>{postUser.username}</Text>
                     <Text style={styles.location}>{post.location.name}</Text>
@@ -221,7 +231,10 @@ export default function PostDetailScreen() {
         
         <View style={styles.commentInputContainer}>
           {user && (
-            <Image source={{ uri: user.profileImage }} style={styles.commentInputAvatar} />
+            <Image 
+              source={user.avatar ? { uri: user.avatar } : { uri: 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60' }} 
+              style={styles.commentInputAvatar} 
+            />
           )}
           <TextInput
             style={styles.commentInput}

@@ -18,7 +18,7 @@ import { colors } from '../../constants/colors';
 import { Post } from '../../types';
 
 export default function HomeScreen() {
-  const { getNearbyPosts } = usePostStore();
+  const { getNearbyPosts, getFriendPosts } = usePostStore();
   const { currentLocation, getCurrentLocation, isLoading: isLocationLoading } = useLocationStore();
   const { user } = useAuthStore();
   
@@ -37,7 +37,8 @@ export default function HomeScreen() {
         return;
       }
       
-      (async () => {
+      try {
+        setRefreshing(true);
         // Ensure we pass a Region object with latitudeDelta and longitudeDelta
         const region = {
           latitude: currentLocation.latitude,
@@ -46,13 +47,48 @@ export default function HomeScreen() {
           longitudeDelta: 0.05,
         };
         const nearbyPosts = await getNearbyPosts(region);
-        setFeedPosts(Array.isArray(nearbyPosts) ? nearbyPosts.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : []);
-      })();
+        
+        // Sắp xếp bài viết theo thời gian tạo (mới nhất lên đầu)
+        if (Array.isArray(nearbyPosts) && nearbyPosts.length > 0) {
+          const sortedPosts = nearbyPosts.sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          setFeedPosts(sortedPosts);
+          console.log(`Loaded ${sortedPosts.length} nearby posts`);
+        } else {
+          console.log('No nearby posts found');
+          setFeedPosts([]);
+        }
+      } catch (error) {
+        console.error('Error loading nearby posts:', error);
+        setFeedPosts([]);
+      } finally {
+        setRefreshing(false);
+      }
     } else {
       if (!user) return;
       
-      // If you want to show friends' posts, implement getFriendsPosts in postStore
-      setFeedPosts([]); // Placeholder: No friends' posts logic implemented
+      try {
+        setRefreshing(true);
+        // Gọi API để lấy bài viết của bạn bè
+        const friendPosts = await getFriendPosts();
+        
+        if (Array.isArray(friendPosts) && friendPosts.length > 0) {
+          const sortedPosts = friendPosts.sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          setFeedPosts(sortedPosts);
+          console.log(`Loaded ${sortedPosts.length} friend posts`);
+        } else {
+          console.log('No friend posts found');
+          setFeedPosts([]);
+        }
+      } catch (error) {
+        console.error('Error loading friend posts:', error);
+        setFeedPosts([]);
+      } finally {
+        setRefreshing(false);
+      }
     }
   };
   

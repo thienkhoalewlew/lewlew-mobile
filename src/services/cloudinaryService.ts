@@ -118,3 +118,20 @@ export const uploadUserAvatar = async (localUri: string, userId: string): Promis
     return null;
   }
 }
+
+export const uploadPostImage = async (localUri: string): Promise<string | null> => {
+  try {
+    // Tải hình ảnh lên Cloudinary
+    const cloudinaryUrl = await uploadImageToCloudinary(localUri, `${CLOUDINARY_CONFIG.folder}/post`);
+    
+    if (cloudinaryUrl) {
+      return cloudinaryUrl;
+    } else {
+      console.error('Lỗi tải lên Cloudinary');
+      return null;
+    }
+  } catch (error) {
+    console.error('Lỗi khi tải lên hình ảnh bài đăng:', error);
+    return null;
+  }
+}

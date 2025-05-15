@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const API_URL = 'https://lewlew.io.vn/api';
+export const API_URL = 'http://192.168.1.9:3000/api';
 
 // Headers mặc định cho các request
 const defaultHeaders = {
@@ -64,19 +64,15 @@ export const api = {
     // Đăng ký người dùng mới
     register: async (fullName: string, email: string, password: string): Promise<ApiResponse<any>> => {
       try {
-        console.log('Registering user:', { fullName, email, password });
         const response = await fetch(`${API_URL}/auth/register`, {
           method: 'POST',
           headers: defaultHeaders,
           body: JSON.stringify({ fullName, email, password }),
         });
         
-        // Log response status
-        console.log('Register response status:', response.status);
         
         // Parse response
         const result = await handleResponse<any>(response);
-        console.log('Register response:', result);
         return result;
       } catch (error) {
         console.error('Register error:', error);
@@ -98,9 +94,7 @@ export const api = {
         console.error('Login error:', error);
         return { error: 'Network error. Please check your connection.' };
       }
-    },
-
-    // Lấy thông tin profile người dùng hiện tại hoặc theo ID
+    },    // Lấy thông tin profile người dùng hiện tại hoặc theo ID
     getProfile: async (userId?: string): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
@@ -192,10 +186,7 @@ export const api = {
     respondToFriendRequest: async (requestId: string, response: 'accept' | 'reject'): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
-        const responseBody = { response };
-        
-        console.log(`Responding to friend request: ${requestId} with action: ${response}`);
-        
+        const responseBody = { response };        
         const apiResponse = await fetch(`${API_URL}/friendrelations/request/${requestId}`, {
           method: 'PUT',
           headers,
@@ -223,5 +214,82 @@ export const api = {
         return { error: 'Network error. Please check your connection.' };
       }
     },
+
+    unfriend: async (friendId: string): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/friendrelations/friend/${friendId}`, {
+          method: 'DELETE',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Unfriend error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
   },
+  // Post APIs
+  posts: {
+    // Tạo bài viết mới
+    createPost: async (postData: any): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/posts`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(postData),
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Create post error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },    
+    
+    // Lấy danh sách bài viết gần đây
+    getNearbyPosts: async (lat: number, lng: number, radius: number = 10): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/posts/nearby?lat=${lat}&lng=${lng}&radius=${radius}`, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Get nearby posts error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+    
+    // Lấy danh sách bài viết của người dùng hiện tại
+    getMyPosts: async (): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/posts/my-posts`, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Get my posts error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+    
+    // Lấy danh sách bài viết từ bạn bè của người dùng hiện tại
+    getFriendsPosts: async (): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/posts/friends-posts`, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Get friends posts error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+  }
 };

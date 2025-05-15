@@ -1,7 +1,7 @@
 // Interface cho dữ liệu từ backend
 export interface BackendUser {
   id: string;
-  fullName: string;
+  fullname: string;
   email: string;
   avatar?: string;
   location?: {

@@ -16,58 +16,64 @@ import { ArrowLeft, Grid, Map, UserPlus, UserMinus } from 'lucide-react-native';
 import { useAuthStore } from '../../store/authStore';
 import { usePostStore } from '../../store/postStore';
 import { colors } from '../../constants/colors';
-import { getUserById } from '../../services/userService';
+import { getUserProfileById, sendFriendRequest, unfriendUser } from '../../services/userService';
 import { Post, User } from '../../types';
 
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { user, updateProfile } = useAuthStore();
+  const { user } = useAuthStore();
   const { posts } = usePostStore();
   
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
-  const [isFriend, setIsFriend] = useState(false);
+  const [friendStatus, setFriendStatus] = useState<'none' | 'pending' | 'accepted' | 'rejected'>('none');
+  const [isLoading, setIsLoading] = useState(false);
   
   useEffect(() => {
     const fetchProfileUser = async () => {
       // id from useLocalSearchParams can be string or string[]
-      let userId: string = Array.isArray(id) ? id[0] : id;
-      const user = await getUserById(userId);
-      setProfileUser(user);
+      let userId: string = Array.isArray(id) ? id[0] : id as string;
+      const userProfile = await getUserProfileById(userId);
+      setProfileUser(userProfile);
+      
+      // Set friend status from user profile response
+      if (userProfile?.status) {
+        setFriendStatus(userProfile.status);
+      }
     };
+    
     fetchProfileUser();
   }, [id]);
 
   useEffect(() => {
-    if (!profileUser) {
-      router.back();
-      return;
+    if (profileUser) {
+      const filteredPosts = posts.filter(post => post.userId === profileUser.id);
+      setUserPosts(filteredPosts);
     }
-    
-    const filteredPosts = posts.filter(post => post.userId === profileUser?.id);
-    setUserPosts(filteredPosts);
-    
-    if (user) {
-      setIsFriend(user.friendIds.includes(profileUser?.id ?? ''));
-    }
-  }, [profileUser, posts, user]);
+  }, [profileUser, posts]);
   
-  const handleToggleFriend = () => {
+  const handleToggleFriend = async () => {
     if (!user || !profileUser) return;
     
-    if (isFriend) {
-      // Remove friend
-      const updatedFriendIds = user.friendIds.filter(id => id !== (profileUser?.id ?? ''));
-      updateProfile({ friendIds: updatedFriendIds });
+    setIsLoading(true);
+    
+    if (friendStatus === 'accepted') {
+      // Unfriend user
+      const response = await unfriendUser(profileUser.id);
+      if (response.success) {
+        setFriendStatus('none');
+      }
     } else {
-      // Add friend
-      const updatedFriendIds = [...user.friendIds, profileUser?.id ?? ''];
-      updateProfile({ friendIds: updatedFriendIds });
+      // Send friend request
+      const response = await sendFriendRequest(profileUser.id);
+      if (response.success) {
+        setFriendStatus('pending');
+      }
     }
     
-    setIsFriend(!isFriend);
+    setIsLoading(false);
   };
   
   const handleViewPost = (postId: string) => {
@@ -91,7 +97,7 @@ export default function UserProfileScreen() {
       
       <Stack.Screen 
         options={{
-          title: profileUser?.username ?? '',
+          title: profileUser.fullname ?? '',
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()}>
               <ArrowLeft size={24} color={colors.text} />
@@ -103,13 +109,13 @@ export default function UserProfileScreen() {
       <ScrollView>
         <View style={styles.profileHeader}>
           <Image 
-            source={{ uri: profileUser?.profileImage ?? '' }} 
+            source={{ uri: profileUser.avatar }} 
             style={styles.profileImage} 
           />
           
-          <Text style={styles.username}>{profileUser?.username ?? ''}</Text>
-          {profileUser?.bio && (
-            <Text style={styles.bio}>{profileUser?.bio ?? ''}</Text>
+          <Text style={styles.username}>{profileUser.fullname}</Text>
+          {profileUser.bio && (
+            <Text style={styles.bio}>{profileUser.bio}</Text>
           )}
           
           <View style={styles.statsContainer}>
@@ -118,7 +124,7 @@ export default function UserProfileScreen() {
               <Text style={styles.statLabel}>Posts</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{profileUser?.friendIds.length ?? 0}</Text>
+              <Text style={styles.statValue}>{profileUser.friendCount || 0}</Text>
               <Text style={styles.statLabel}>Friends</Text>
             </View>
           </View>
@@ -127,15 +133,18 @@ export default function UserProfileScreen() {
             <TouchableOpacity 
               style={[
                 styles.friendButton,
-                isFriend ? styles.unfriendButton : styles.addFriendButton
+                friendStatus === 'accepted' ? styles.unfriendButton : styles.addFriendButton
               ]}
               onPress={handleToggleFriend}
+              disabled={isLoading || friendStatus === 'pending'}
             >
-              {isFriend ? (
+              {friendStatus === 'accepted' ? (
                 <>
                   <UserMinus size={16} color="white" />
                   <Text style={styles.friendButtonText}>Remove Friend</Text>
                 </>
+              ) : friendStatus === 'pending' ? (
+                <Text style={styles.friendButtonText}>Request Pending</Text>
               ) : (
                 <>
                   <UserPlus size={16} color="white" />

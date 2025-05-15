@@ -5,7 +5,6 @@ import {
   StyleSheet, 
   TouchableOpacity,
   ActivityIndicator,
-  Dimensions
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';

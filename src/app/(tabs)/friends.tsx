@@ -14,7 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Search, User as UserIcon, UserPlus, UserCheck, Clock } from 'lucide-react-native';
+import { Search, User as UserIcon } from 'lucide-react-native';
 
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../constants/colors';
@@ -179,7 +179,6 @@ export default function FriendsScreen() {
         return;
       }
       
-      console.log(`Responding to request ID: ${requestId} with action: ${action}`);
       const response = await respondToFriendRequest(requestId, action);
       
       if (response.success) {
@@ -207,32 +206,10 @@ export default function FriendsScreen() {
         style={styles.userItem}
         onPress={() => handleViewProfile(item.id)}
       >
-        <Image source={{ uri: item.profileImage }} style={styles.userAvatar} />
+        <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
         <View style={styles.userInfo}>
-          <Text style={styles.username}>{item.username}</Text>
+          <Text style={styles.username}>{item.fullname}</Text>
           <Text style={styles.userEmail}>{item.email}</Text>
-          
-          {/* Friend status indicator */}
-          <View style={styles.friendStatusContainer}>
-            {(!item.friendStatus || item.friendStatus === 'none') && (
-              <>
-                <UserPlus size={14} color={colors.primary} />
-                <Text style={styles.friendStatusText}>Add Friend</Text>
-              </>
-            )}
-            {item.friendStatus === 'pending' && (
-              <>
-                <Clock size={14} color="#F59E0B" />
-                <Text style={[styles.friendStatusText, { color: "#F59E0B" }]}>Pending</Text>
-              </>
-            )}
-            {item.friendStatus === 'accepted' && (
-              <>
-                <UserCheck size={14} color="#10B981" />
-                <Text style={[styles.friendStatusText, { color: "#10B981" }]}>Friends</Text>
-              </>
-            )}
-          </View>
         </View>
       </TouchableOpacity>
     );
@@ -244,9 +221,9 @@ export default function FriendsScreen() {
         style={styles.userItem}
         onPress={() => handleViewProfile(item.id)}
       >
-        <Image source={{ uri: item.profileImage }} style={styles.userAvatar} />
+        <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
         <View style={styles.userInfo}>
-          <Text style={styles.username}>{item.username}</Text>
+          <Text style={styles.username}>{item.fullname}</Text>
           {item.bio ? (
             <Text style={styles.userBio} numberOfLines={1}>{item.bio}</Text>
           ) : (
@@ -262,11 +239,11 @@ export default function FriendsScreen() {
     return (
       <View style={styles.userItem}>
         <TouchableOpacity onPress={() => handleViewProfile(item.id)}>
-          <Image source={{ uri: item.profileImage }} style={styles.userAvatar} />
+          <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
         </TouchableOpacity>
         <View style={styles.userInfo}>
           <TouchableOpacity onPress={() => handleViewProfile(item.id)}>
-            <Text style={styles.username}>{item.username}</Text>
+            <Text style={styles.username}>{item.fullname}</Text>
             <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
           </TouchableOpacity>
           
@@ -354,40 +331,6 @@ export default function FriendsScreen() {
             />
           }
         >
-          {/* Friend Requests Section */}
-          <View style={styles.requestsSection}>
-            <Text style={styles.sectionTitle}>Friend Requests</Text>
-            
-            {friendRequests.length > 0 ? (
-              <>
-                {friendRequests.map((item) => (
-                  <View key={item.id}>
-                    {renderFriendRequestItem({ item })}
-                  </View>
-                ))}
-                {isLoadingRequests && renderFooter(isLoadingRequests)}
-                {hasMoreRequests && (
-                  <TouchableOpacity 
-                    style={styles.loadMoreButton} 
-                    onPress={handleLoadMoreRequests}
-                  >
-                    <Text style={styles.loadMoreText}>Load more requests</Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            ) : (
-              !isLoadingRequests && (
-                <View style={styles.emptyContainer}>
-                  <UserIcon size={40} color={colors.textLight} />
-                  <Text style={styles.emptyTitle}>No friend requests yet</Text>
-                  <Text style={styles.emptyText}>
-                    Friend requests will appear here when someone wants to connect with you
-                  </Text>
-                </View>
-              )
-            )}
-          </View>
-          
           {/* Friends List Section */}
           <View style={styles.friendsSection}>
             <Text style={styles.sectionTitle}>Your Friends</Text>
@@ -416,6 +359,40 @@ export default function FriendsScreen() {
                   <Text style={styles.emptyTitle}>No friends yet</Text>
                   <Text style={styles.emptyText}>
                     Search for users to add them as friends
+                  </Text>
+                </View>
+              )
+            )}
+          </View>
+
+          {/* Friend Requests Section */}
+          <View style={styles.requestsSection}>
+            <Text style={styles.sectionTitle}>Friend Requests</Text>
+            
+            {friendRequests.length > 0 ? (
+              <>
+                {friendRequests.map((item) => (
+                  <View key={item.id}>
+                    {renderFriendRequestItem({ item })}
+                  </View>
+                ))}
+                {isLoadingRequests && renderFooter(isLoadingRequests)}
+                {hasMoreRequests && (
+                  <TouchableOpacity 
+                    style={styles.loadMoreButton} 
+                    onPress={handleLoadMoreRequests}
+                  >
+                    <Text style={styles.loadMoreText}>Load more requests</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            ) : (
+              !isLoadingRequests && (
+                <View style={styles.emptyContainer}>
+                  <UserIcon size={40} color={colors.textLight} />
+                  <Text style={styles.emptyTitle}>No friend requests yet</Text>
+                  <Text style={styles.emptyText}>
+                    Friend requests will appear here when someone wants to connect with you
                   </Text>
                 </View>
               )

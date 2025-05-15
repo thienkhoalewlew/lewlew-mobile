@@ -1,5 +1,7 @@
+import { light } from '@cloudinary/url-gen/qualifiers/fontWeight';
 import { Post, Region } from '../types';
 import { api } from './api';
+import { uploadPostImage } from './cloudinaryService';
 
 /**
  * Lấy danh sách bài đăng gần vị trí hiện tại
@@ -8,14 +10,18 @@ import { api } from './api';
  */
 export const getNearbyPosts = async (region: Region): Promise<Post[]> => {
   try {
-    // Trong tương lai, bạn sẽ gọi API để lấy bài đăng gần đây
-    // const response = await api.posts.getNearby(region.latitude, region.longitude, 10);
-    // if (response.data) {
-    //   return response.data.map(mapBackendPostToAppPost);
-    // }
+    // Gọi API để lấy bài đăng gần đây
+    const response = await api.posts.getNearbyPosts(
+      region.latitude, 
+      region.longitude, 
+      10 // Bán kính mặc định (có thể điều chỉnh dựa trên kích thước khu vực xem)
+    );
     
-    // Tạm thời trả về mảng rỗng vì chưa có API endpoint
-    console.log('API for getting nearby posts is not implemented yet');
+    if (response.data && Array.isArray(response.data)) {
+      return response.data.map(mapBackendPostToAppPost);
+    }
+    
+    console.log('No nearby posts found or invalid response format');
     return [];
   } catch (error) {
     console.error('Error fetching nearby posts:', error);
@@ -25,19 +31,18 @@ export const getNearbyPosts = async (region: Region): Promise<Post[]> => {
 
 /**
  * Lấy danh sách bài đăng của bạn bè
- * @param friendIds Danh sách ID của bạn bè
  * @returns Promise<Post[]> Danh sách bài đăng
  */
-export const getFriendPosts = async (friendIds: string[]): Promise<Post[]> => {
+export const getFriendPosts = async (): Promise<Post[]> => {
   try {
-    // Trong tương lai, bạn sẽ gọi API để lấy bài đăng của bạn bè
-    // const response = await api.posts.getByUserIds(friendIds);
-    // if (response.data) {
-    //   return response.data.map(mapBackendPostToAppPost);
-    // }
+    // Gọi API để lấy bài đăng của bạn bè
+    const response = await api.posts.getFriendsPosts();
     
-    // Tạm thời trả về mảng rỗng vì chưa có API endpoint
-    console.log('API for getting friend posts is not implemented yet');
+    if (response.data && Array.isArray(response.data)) {
+      return response.data.map(mapBackendPostToAppPost);
+    }
+    
+    console.log('No friend posts found or invalid response format');
     return [];
   } catch (error) {
     console.error('Error fetching friend posts:', error);
@@ -48,22 +53,61 @@ export const getFriendPosts = async (friendIds: string[]): Promise<Post[]> => {
 /**
  * Tạo bài đăng mới
  * @param postData Dữ liệu bài đăng
- * @returns Promise<Post | null> Bài đăng đã tạo hoặc null nếu có lỗi
+ * @returns Promise với đối tượng chứa data (nếu thành công) hoặc error (nếu thất bại)
  */
-export const createPost = async (postData: any): Promise<Post | null> => {
+export const createPost = async (postData: any) => {
   try {
-    // Trong tương lai, bạn sẽ gọi API để tạo bài đăng
-    // const response = await api.posts.create(postData);
-    // if (response.data) {
-    //   return mapBackendPostToAppPost(response.data);
-    // }
-    
-    // Tạm thời trả về null vì chưa có API endpoint
-    console.log('API for creating post is not implemented yet');
-    return null;
+    // 1. Kiểm tra dữ liệu đầu vào
+    if (!postData.imageUrl || !postData.caption || !postData.location) {
+      return { error: 'Missing required post data' };
+    }
+
+    // 2. Tải ảnh lên Cloudinary nếu cần
+    let imageUrl = postData.imageUrl;
+    if (postData.imageUrl.startsWith('file://')) {
+      imageUrl = await uploadPostImage(postData.imageUrl);
+      if (!imageUrl) {
+        return { error: 'Failed to upload image to Cloudinary' };
+      }
+    }
+
+    // 3. Chuẩn bị dữ liệu gửi đến API
+    const apiPostData = {
+      image: imageUrl,
+      caption: postData.caption,
+      location: {
+        type: 'Point',
+        coordinates: [
+          postData.location.longitude,
+          postData.location.latitude,
+        ],
+        placeName: postData.location.name,
+      },
+    };
+
+    // 4. Gửi yêu cầu đến API backend
+    const response = await api.posts.createPost(apiPostData);
+
+    // 5. Xử lý phản hồi từ API
+    if (response.data) {
+      return {
+        data: {
+          id: response.data.id || response.data._id,
+          userId: postData.userId,
+          imageUrl: imageUrl,
+          caption: postData.caption,
+          location: postData.location,
+          likes: response.data.likes || [],
+          comments: response.data.comments || [],
+          createdAt: new Date(response.data.createdAt),
+        },
+      };
+    }
+
+    return { error: response.error || 'Failed to create post' };
   } catch (error) {
     console.error('Error creating post:', error);
-    return null;
+    return { error: 'Unable to create post' };
   }
 };
 
@@ -71,18 +115,59 @@ export const createPost = async (postData: any): Promise<Post | null> => {
  * Ánh xạ dữ liệu bài đăng từ backend sang định dạng của ứng dụng
  */
 export const mapBackendPostToAppPost = (backendPost: any): Post => {
+  let userId = backendPost.userId;
+  
+  if (backendPost.user) {
+    if (typeof backendPost.user === 'object' && backendPost.user !== null) {
+      userId = backendPost.user._id;
+    } else {
+      userId = backendPost.user;
+    }
+  }
+  
+  console.log('Mapping post:', backendPost._id, 'userId:', userId);
+  
   return {
-    id: backendPost.id,
-    userId: backendPost.userId,
-    imageUrl: backendPost.image,
-    caption: backendPost.caption,
+    id: backendPost._id || backendPost.id,
+    userId: userId,
+    imageUrl: backendPost.imageUrl || backendPost.image,
+    caption: backendPost.caption || '',
     location: {
-      latitude: backendPost.location?.coordinates[1] || 0,
-      longitude: backendPost.location?.coordinates[0] || 0,
-      name: backendPost.locationName || '',
+      latitude: backendPost.location?.coordinates ? backendPost.location.coordinates[1] : 0,
+      longitude: backendPost.location?.coordinates ? backendPost.location.coordinates[0] : 0,
+      name: backendPost.location?.placeName || '',
     },
     likes: backendPost.likes || [],
     comments: backendPost.comments || [],
     createdAt: new Date(backendPost.createdAt),
   };
 };
+
+export const ensureStringId = (id: any): string => {
+  if (!id) return '';
+  if (typeof id === 'string') return id;
+  if (typeof id === 'object' && id !== null) {
+    return id.id || id._id || id.Id || '';
+  }
+  return String(id);
+};
+
+export const getUserPosts = async (): Promise<Post[]> => {
+  try {
+    const response = await api.posts.getMyPosts();
+    
+    if (response.data && Array.isArray(response.data.posts)) {
+      return response.data.posts.map(mapBackendPostToAppPost);
+    }
+    
+    if (response.data && Array.isArray(response.data)) {
+      return response.data.map(mapBackendPostToAppPost);
+    }
+    
+    console.log('No user posts found or invalid response format');
+    return [];
+  } catch (error) {
+    console.error('Error fetching user posts:', error);
+    return [];
+  }
+}

@@ -37,7 +37,7 @@ export default function CreatePostScreen() {
     if (!currentLocation) {
       getCurrentLocation();
     }
-  }, []);
+  }, []); 
   
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -100,7 +100,6 @@ export default function CreatePostScreen() {
       Alert.alert('Location unavailable', 'Unable to get your current location');
       return;
     }
-    
     try {
       await createPost({
         userId: user.id,
@@ -117,11 +116,13 @@ export default function CreatePostScreen() {
       setImage(null);
       setCaption('');
       setLocationName('');
-      
+
+      Alert.alert('Success', 'Your post has been created successfully!');
+
       // Navigate to home
       router.push('/(tabs)');
     } catch (error) {
-      Alert.alert('Error', 'Failed to create post');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to create post');
     }
   };
 

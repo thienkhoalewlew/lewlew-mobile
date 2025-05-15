@@ -9,16 +9,19 @@ const userCache: Record<string, User> = {};
  * Ánh xạ dữ liệu người dùng từ backend sang định dạng của ứng dụng
  */
 export const mapBackendUserToAppUser = (backendUser: any): User => {
+  
   return {
     id: backendUser._id || backendUser.id,
-    username: backendUser.fullName,
-    email: backendUser.email,
-    profileImage: backendUser.profileImage || backendUser.avatar || 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    username: backendUser.username || '', 
+    fullname: backendUser.fullName || backendUser.fullname || backendUser.username || 'Unknown User',
+    email: backendUser.email || '',
+    avatar: backendUser.avatar || backendUser.avatar || 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
     bio: backendUser.bio || '',
-    friendIds: backendUser.friendIds || (Array.isArray(backendUser.friends) ? backendUser.friends.map((friend: any) => friend.id) : []),
-    friendStatus: backendUser.friendStatus || 'none',
+    friendCount: backendUser.friendCount || (Array.isArray(backendUser.friends) ? backendUser.friends.length : 0),
+    status: backendUser.friendStatus || backendUser.status || 'none',
     createdAt: backendUser.createdAt ? new Date(backendUser.createdAt) : new Date(),
     token: backendUser.token,
+    requestId: backendUser.requestId,
   };
 };
 
@@ -50,7 +53,7 @@ export const getUserById = async (userId: string): Promise<User | null> => {
   }
 };
 
-// Thêm hàm lấy profile user hiện tại (dùng cho màn profile của chính mình)
+// Lấy profile user hiện tại
 export const getCurrentUserProfile = async (): Promise<User | null> => {
   try {
     const response = await api.auth.getProfile();
@@ -102,7 +105,8 @@ export const getFriendsList = async (page: number = 1, limit: number = 10): Prom
     if (response.data && response.data.items) {
       // Map các đối tượng user từ backend sang định dạng User của ứng dụng
       const friends = response.data.items.map(mapBackendUserToAppUser);
-      
+      console.log('Friends list data:', response.data.friends);
+
       // Cache lại các người dùng để sử dụng sau này
       friends.forEach((friend: User) => {
         userCache[friend.id] = friend;
@@ -146,21 +150,16 @@ export const searchUsers = async (query: string, page: number = 1, limit: number
   }
 };
 
-/**
- * Lấy thông tin chi tiết của người dùng theo ID
- * @param userId ID của người dùng cần lấy thông tin
- * @returns Promise<User | null> Thông tin chi tiết người dùng hoặc null nếu không tìm thấy
- */
+//Lấy thông tin chi tiết của người dùng theo ID
 export const getUserProfileById = async (userId: string): Promise<User | null> => {
   try {
-    const response = await api.auth.getProfile(userId);
+    const response = await api.auth.getProfile(userId); // Gọi API có userId
     if (response && response.data) {
-      const userData = mapBackendUserToAppUser(response.data);
-      return userData;
+      return mapBackendUserToAppUser(response.data);
     }
     return null;
   } catch (error) {
-    console.error('Error fetching user profile:', error);
+    console.error('Error fetching user profile by ID:', error);
     return null;
   }
 };
@@ -182,12 +181,12 @@ export const sendFriendRequest = async (userId: string): Promise<{ success: bool
     }
     
     // Cập nhật trạng thái kết bạn trong cache nếu user đã được cache
-    if (userCache[userId]) {
-      userCache[userId] = {
-        ...userCache[userId],
-        friendStatus: 'pending'
-      };
-    }
+  if (userCache[userId]) {
+    userCache[userId] = {
+      ...userCache[userId],
+      status: 'pending', // Thay 'friendStatus' bằng 'status'
+    };
+  }
     
     return {
       success: true,
@@ -211,11 +210,11 @@ export const sendFriendRequest = async (userId: string): Promise<{ success: bool
 export const getFriendRequests = async (page: number = 1, limit: number = 10): Promise<User[]> => {
   try {
     const response = await api.friendrelations.getFriendRequests(page, limit);
-    console.log("Friend requests response:", JSON.stringify(response.data));
     
     // Kiểm tra cấu trúc dữ liệu trả về
     if (response.data && response.data.requests) {
       // Map các đối tượng request sang định dạng User với thêm requestId
+      console.log('Friend requests data:', response.data.requests);
       const requestUsers = response.data.requests.map((request: any) => {
         // Trường hợp dữ liệu từ API có cấu trúc khác nhau - xử lý cả hai trường hợp
         const userData = request.from || request.user1;
@@ -233,14 +232,11 @@ export const getFriendRequests = async (page: number = 1, limit: number = 10): P
         userCache[user.id] = user;
       });
       
-      console.log("Mapped friend requests:", requestUsers.length);
       return requestUsers;
     }
     
-    console.log("No friend requests found in response");
     return [];
   } catch (error) {
-    console.error('Error fetching friend requests:', error);
     return [];
   }
 };
@@ -275,5 +271,18 @@ export const respondToFriendRequest = async (
       success: false,
       message: 'Error responding to friend request. Please try again later.'
     };
+  }
+};
+
+export const unfriendUser = async (friendId: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await api.friendrelations.unfriend(friendId); // Gọi API backend
+    if (response.error) {
+      return { success: false, message: response.error };
+    }
+    return { success: true, message: 'Unfriended successfully' };
+  } catch (error) {
+    console.error('Error unfriending user:', error);
+    return { success: false, message: 'Unable to unfriend user. Please try again later.' };
   }
 };

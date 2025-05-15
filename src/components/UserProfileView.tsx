@@ -10,7 +10,7 @@ import {
   Alert
 } from 'react-native';
 import { User } from '../types';
-import { getUserProfileById, sendFriendRequest } from '../services/userService';
+import { getUserProfileById, sendFriendRequest, unfriendUser } from '../services/userService';
 import { colors } from '../constants/colors';
 import { UserPlus, UserMinus, Clock } from 'lucide-react-native';
 
@@ -54,10 +54,9 @@ const UserProfileView: React.FC<UserProfileViewProps> = ({ userId, onClose }) =>
       const result = await sendFriendRequest(user.id);
       
       if (result.success) {
-        // Cập nhật trạng thái người dùng với friendStatus pending
         setUser(prevUser => {
           if (prevUser) {
-            return { ...prevUser, friendStatus: 'pending' };
+            return { ...prevUser, status: 'pending' };
           }
           return prevUser;
         });
@@ -70,6 +69,29 @@ const UserProfileView: React.FC<UserProfileViewProps> = ({ userId, onClose }) =>
       Alert.alert('Error', 'Something went wrong. Please try again later.');
     } finally {
       setIsSendingRequest(false);
+    }
+  };
+
+  const handleUnfriend = async () => {
+    if (!user) return;
+
+    try {
+      const result = await unfriendUser(user.id);
+
+      if (result.success) {
+        setUser((prevUser) => {
+          if (prevUser) {
+            return { ...prevUser, status: 'none' };
+          }
+          return prevUser;
+        });
+        Alert.alert('Success', 'Unfriended successfully');
+      } else {
+        Alert.alert('Error', result.message || 'Failed to unfriend user');
+      }
+    } catch (error) {
+      console.error('Error unfriending user:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again later.');
     }
   };
 
@@ -97,25 +119,27 @@ const UserProfileView: React.FC<UserProfileViewProps> = ({ userId, onClose }) =>
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
-        <Image source={{ uri: user.profileImage }} style={styles.avatar} />
-        <Text style={styles.username}>{user.username}</Text>
+        <Image 
+          source={
+            user.avatar 
+              ? { uri: user.avatar } 
+              : { uri: 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60' }
+          } 
+          style={styles.avatar} 
+        />
+        <Text style={styles.username}>{user.fullname}</Text>
         <Text style={styles.email}>{user.email}</Text>
-        
-        {user.bio && (
-          <Text style={styles.bio}>{user.bio}</Text>
-        )}
       </View>
       
       <View style={styles.stats}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{user.friendIds?.length || 0}</Text>
+          <Text style={styles.statValue}>{user.friendCount || 0}</Text>
           <Text style={styles.statLabel}>Friends</Text>
         </View>
       </View>
-      
-      {/* Hiển thị trạng thái kết bạn */}
+
       <View style={styles.friendStatusContainer}>
-        {(!user.friendStatus || user.friendStatus === 'none') && (
+        {user.status === 'none' && (
           <TouchableOpacity 
             style={styles.friendButton}
             onPress={handleSendFriendRequest}
@@ -131,20 +155,23 @@ const UserProfileView: React.FC<UserProfileViewProps> = ({ userId, onClose }) =>
             )}
           </TouchableOpacity>
         )}
-        {user.friendStatus === 'pending' && (
+        {user.status === 'pending' && (
           <View style={styles.pendingContainer}>
             <Clock size={16} color="#F59E0B" />
             <Text style={styles.pendingText}>Pending</Text>
           </View>
         )}
-        {user.friendStatus === 'accepted' && (
-          <TouchableOpacity style={styles.unfriendButton}>
+        {user.status === 'accepted' && (
+          <TouchableOpacity
+            style={styles.unfriendButton}
+            onPress={handleUnfriend}
+          >
             <UserMinus size={16} color="white" />
-            <Text style={styles.friendButtonText}>Remove Friend</Text>
+            <Text style={styles.friendButtonText}>Unfriend</Text>
           </TouchableOpacity>
         )}
       </View>
-      
+
       {onClose && (
         <TouchableOpacity style={styles.closeButton} onPress={onClose}>
           <Text style={styles.closeButtonText}>Close</Text>
@@ -190,12 +217,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textLight,
     marginBottom: 8,
-  },
-  bio: {
-    fontSize: 16,
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: 16,
   },
   stats: {
     flexDirection: 'row',
@@ -268,4 +289,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default UserProfileView; 
+export default UserProfileView;

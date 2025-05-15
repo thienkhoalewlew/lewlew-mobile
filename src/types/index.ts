@@ -1,15 +1,15 @@
 export interface User {
-  id: string;
-  username: string;
-  email: string;
-  profileImage: string;
-  bio?: string;
-  friendIds: string[];
-  friendStatus?: 'none' | 'pending' | 'accepted' | 'rejected';
-  pendingRequestId?: string; // ID của lời mời kết bạn đang chờ xử lý
-  createdAt: Date;
-  token?: string; // JWT token từ backend
-  requestId?: string; // ID của lời mời kết bạn (nếu có)
+  id: string; // ID của người dùng
+  username: string; // Tên người dùng
+  fullname: string; // Tên đầy đủ của người dùng
+  email: string; // Email của người dùng
+  avatar: string; // URL ảnh đại diện
+  bio?: string; // Tiểu sử của người dùng (nếu có)
+  friendCount: number; // Số lượng bạn bè
+  status: 'none' | 'pending' | 'accepted' | 'rejected'; // Trạng thái kết bạn
+  requestId?: string; // ID của yêu cầu kết bạn (nếu có)
+  createdAt: Date; // Ngày tạo tài khoản
+  token?: string; // JWT token từ backend (nếu có)
 }
 
 export interface Post {
@@ -66,7 +66,8 @@ export interface PostState {
   addComment: (postId: string, userId: string, text: string) => void;
   deletePost: (postId: string) => void;
   getNearbyPosts: (region: Region) => Promise<Post[]>;
-  getFriendPosts: (friendIds: string[]) => Promise<Post[]>;
+  getFriendPosts: () => Promise<Post[]>;
+  getUserPosts: () => Promise<Post[]>;
 }
 
 export interface LocationState {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -14,6 +14,7 @@ import { colors } from '../constants/colors';
 import { getUserById } from '../services/userService';
 import { useAuthStore } from '../store/authStore';
 import { usePostStore } from '../store/postStore';
+import { ensureStringId } from '../services/postService';
 
 interface PostCardProps {
   post: Post;
@@ -34,9 +35,12 @@ export const PostCard: React.FC<PostCardProps> = ({
   // Lấy thông tin người dùng khi component được render
   React.useEffect(() => {
     const fetchUser = async () => {
-      const user = await getUserById(post.userId);
-      if (user) {
-        setPostUser(user);
+      const userId = ensureStringId(post.userId);
+      if (userId) {
+        const user = await getUserById(userId);
+        if (user) {
+          setPostUser(user);
+        }
       }
     };
     
@@ -59,7 +63,9 @@ export const PostCard: React.FC<PostCardProps> = ({
   };
   
   const handleViewProfile = () => {
-    router.push(`/profile/${post.userId}`);
+    const userId = ensureStringId(post.userId);
+    if (!userId) return;
+    router.push(`/profile/${userId}`);
   };
   
   const handleViewLocation = () => {
@@ -82,16 +88,25 @@ export const PostCard: React.FC<PostCardProps> = ({
     });
   };
 
-  if (!postUser) return null;
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.userInfo} onPress={handleViewProfile}>
-          <Image source={{ uri: postUser.profileImage }} style={styles.avatar} />
+          <Image 
+            source={
+              postUser && postUser.avatar 
+                ? { uri: postUser.avatar } 
+                : { uri: 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60' }
+            } 
+            style={styles.avatar} 
+          />
           <View>
-            <Text style={styles.username}>{postUser.username}</Text>
-            <Text style={styles.location}>{post.location.name}</Text>
+            <Text style={styles.username}>
+              {postUser ? postUser.username || postUser.fullname : 'User'}
+            </Text>
+            <Text style={styles.location}>
+              {post.location.name || 'Unknown location'}
+            </Text>
           </View>
         </TouchableOpacity>
         <TouchableOpacity>
@@ -130,7 +145,9 @@ export const PostCard: React.FC<PostCardProps> = ({
       <View style={styles.content}>
         <Text style={styles.likesCount}>{post.likes.length} likes</Text>
         <View style={styles.captionContainer}>
-          <Text style={styles.captionUsername}>{postUser.username}</Text>
+          <Text style={styles.captionUsername}>
+            {postUser ? postUser.fullname || postUser.username || 'User' : 'User'}
+          </Text>
           <Text style={styles.caption}>{post.caption}</Text>
         </View>
         
@@ -142,7 +159,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           </TouchableOpacity>
         )}
         
-        <Text style={styles.timestamp}>(post.createdAt)</Text>
+        <Text style={styles.timestamp}>{formatDate(post.createdAt.toString())}</Text>
       </View>
     </View>
   );
