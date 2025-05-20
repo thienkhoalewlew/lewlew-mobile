@@ -88,3 +88,39 @@ export interface FriendState {
   removeFriend: (friendId: string) => void;
   getFriends: (userId: string) => User[];
 }
+
+export interface Notification{
+  id: string;
+  recipientId: string;
+  senderId: string;
+  type: NotificationType;
+  message: string;
+  read: boolean;
+  postId?: string;
+  commentId?: string;
+  createdAt: Date;
+}
+
+export enum NotificationType {
+  FRIEND_REQUEST = 'FRIEND_REQUEST',
+  FRIEND_ACCEPTED = 'FRIEND_ACCEPTED',
+  POST_LIKE = 'POST_LIKE',
+  POST_COMMENT = 'POST_COMMENT',
+  POST_VIRAL = 'POST_VIRAL',
+  FRIEND_POST = 'FRIEND_POST',
+}
+
+export interface NotificationState {
+  notifications: Notification[];
+  unreadCount: number;
+  isLoading: boolean;
+  error: string | null;
+  socket: any | null;
+
+  fetchNotifications: () => Promise<void>;
+  markAsRead: (notificationId: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
+  initializeSocket: (token: string) => void;
+  disconnectSocket: () => void;
+  addNotification: (notification: Notification) => void;
+}

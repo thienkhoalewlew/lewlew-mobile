@@ -291,5 +291,42 @@ export const api = {
         return { error: 'Network error. Please check your connection.' };
       }
     },
+  },
+  //Nofitication
+  notifications:{
+    //get all notifications
+    getNotifications: async (): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        console.log('Getting notifications with headers:', headers);
+        const response = await fetch(`${API_URL}/notifications`, {
+          method: 'GET',
+          headers,
+        });
+        console.log('Notifications API response status:', response.status);
+        const result = await handleResponse<any>(response);
+        console.log('Notifications API parsed result:', result.error || 'Success');
+        return result;
+      } catch (error) {
+        console.error('Get notifications error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    //Mark notification as read
+    markAsRead: async (notificationId: string): Promise<ApiResponse<any>> => {
+      try  {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/notifications/${notificationId}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ read: true }),
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Mark notification as read error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    }
   }
 };

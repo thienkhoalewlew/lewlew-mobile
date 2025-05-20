@@ -4,6 +4,7 @@ import { Slot } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { ErrorBoundary } from "./error-boundary";
+import { NotificationProvider } from "../providers/NotificationProvider";
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
@@ -37,7 +38,9 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
-      <Slot />
+      <NotificationProvider>
+        <Slot />
+      </NotificationProvider>
     </ErrorBoundary>
   );
 }
