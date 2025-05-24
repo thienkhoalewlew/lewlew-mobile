@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { useRouter } from 'expo-router';
-import { Home, Map, PlusSquare, User, Users } from 'lucide-react-native';
+import { Home, Map, PlusSquare, User, Users, Bell } from 'lucide-react-native';
 import { colors } from '../../constants/colors';
 import { useAuthStore } from '../../store/authStore';
 
@@ -73,6 +73,13 @@ export default function TabLayout() {
         options={{
           title: 'Friends',
           tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: 'Notifications',
+          tabBarIcon: ({ color, size }) => <Bell size={size} color={color} />,
         }}
       />
       <Tabs.Screen

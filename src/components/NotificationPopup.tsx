@@ -14,12 +14,14 @@ interface NotificationPopupProps {
   notification: Notification | null;
   onPress: (notification: Notification) => void;
   onDismiss: () => void;
+  senderName?: string; // Added to display sender's name
 }
 
 export const NotificationPopup: React.FC<NotificationPopupProps> = ({
   notification,
   onPress,
-  onDismiss
+  onDismiss,
+  senderName
 }) => {
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-100)).current;
@@ -86,7 +88,8 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
         style={styles.content}
         activeOpacity={0.8}
         onPress={handlePress}
-      >        <View style={styles.avatarContainer}>
+      >
+        <View style={styles.avatarContainer}>
           <View style={styles.defaultAvatar}>
             <Text style={styles.avatarText}>
               {notification.senderId && typeof notification.senderId === 'string' 
@@ -94,12 +97,12 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
                 : '?'}
             </Text>
           </View>
-        </View>
-        
-        <View style={styles.textContainer}>
-          <Text style={styles.title}>Thông báo mới</Text>
-          <Text style={styles.message} numberOfLines={2}>
-            {notification.message}
+        </View>        <View style={styles.textContainer}>
+          <Text style={styles.title}>
+            {notification.type === 'FRIEND_POST' ? 'Bài viết mới' : 'Thông báo mới'}
+          </Text>          <Text style={styles.message} numberOfLines={2}>
+            <Text style={styles.senderName}>{senderName || 'Someone'}</Text>
+            <Text>{' '}{notification.message}</Text>
           </Text>
         </View>
       </TouchableOpacity>
@@ -132,6 +135,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     zIndex: 999,
+  },
+  senderName: {
+    fontWeight: 'bold',
   },
   content: {
     flex: 1,
@@ -169,11 +175,14 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 4,
-  },
-  closeText: {
+  },  closeText: {
     fontSize: 22,
     color: '#999',
     fontWeight: 'bold',
     lineHeight: 22,
+  },
+  highlight: {
+    color: colors.primary,
+    fontWeight: 'bold',
   },
 });

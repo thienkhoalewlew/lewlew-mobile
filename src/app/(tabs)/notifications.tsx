@@ -34,8 +34,8 @@ export default function NotificationsScreen() {
   } = useNotificationStore();
   
   const [refreshing, setRefreshing] = useState(false);
-  const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
-    useEffect(() => {
+  const [userData, setUserData] = useState<Record<string, { avatar?: string, username?: string, fullname?: string }>>({});
+  useEffect(() => {
     loadNotifications();
     
     // Debug: Check if we have a valid auth token
@@ -75,19 +75,23 @@ export default function NotificationsScreen() {
       const userIds = [...new Set(notifications.map(n => n.senderId))];
       
       // Sử dụng hàm getUserById từ userService để lấy thông tin người dùng
-      const avatarsMap: Record<string, string> = {};
+      const avatarsMap: Record<string, { avatar?: string, username?: string, fullname?: string }> = {};
       
       await Promise.all(
         userIds.map(async (userId) => {
           const user = await getUserById(userId);
-          if (user && user.avatar) {
-            avatarsMap[userId] = user.avatar;
+          if (user) {
+            avatarsMap[userId] = {
+              avatar: user.avatar,
+              username: user.username,
+              fullname: user.fullname,
+            };
           }
         })
       );
       
       console.log('Loaded avatars for users:', Object.keys(avatarsMap).length);
-      setUserAvatars(avatarsMap);
+      setUserData(avatarsMap);
     } catch (error) {
       console.error('Error loading user avatars:', error);
     }
@@ -151,14 +155,18 @@ export default function NotificationsScreen() {
       onPress={() => handleNotificationPress(item)}
     >
       <View style={styles.avatarContainer}>
-        {userAvatars[item.senderId] ? (
+        {userData[item.senderId]?.avatar ? (
           <Image 
-            source={{ uri: userAvatars[item.senderId] }} 
+            source={{ uri: userData[item.senderId]?.avatar }} 
             style={styles.avatar} 
           />
         ) : (
           <View style={[styles.avatar, styles.defaultAvatar]}>
-            <Text style={styles.avatarText}>{item.senderId.charAt(0).toUpperCase()}</Text>
+            <Text style={styles.avatarText}>
+              {item.senderId && typeof item.senderId === 'string' && item.senderId.length > 0 
+                ? item.senderId.charAt(0).toUpperCase() 
+                : '?'}
+            </Text>
           </View>
         )}
         
@@ -166,7 +174,14 @@ export default function NotificationsScreen() {
       </View>
       
       <View style={styles.contentContainer}>
-        <Text style={styles.message}>{item.message}</Text>
+        <Text style={styles.message}>
+          <Text style={styles.username}>
+            {item.senderId && userData[item.senderId]?.username || 
+            item.senderId && userData[item.senderId]?.fullname || 
+            'Someone'}
+          </Text>
+          <Text>{' '}{item.message}</Text>
+        </Text>
         <Text style={styles.time}>{formatTime(new Date(item.createdAt))}</Text>
       </View>
     </TouchableOpacity>
@@ -184,7 +199,7 @@ export default function NotificationsScreen() {
         <Text style={styles.title}>Notification</Text>
         {notifications.length > 0 && (
           <TouchableOpacity onPress={markAllAsRead}>
-            <Text style={styles.markAllText}>Đánh dấu đã đọc tất cả</Text>
+            <Text style={styles.markAllText}>Mark all as read</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -192,7 +207,8 @@ export default function NotificationsScreen() {
       {isLoading && !refreshing ? (
         <ActivityIndicator style={styles.loader} size="large" color={colors.primary} />
       ) : (
-        <FlatList
+        
+      <FlatList
           data={notifications}
           keyExtractor={item => item.id}
           renderItem={renderItem}
@@ -207,41 +223,16 @@ export default function NotificationsScreen() {
           style={styles.list}
           contentContainerStyle={notifications.length === 0 ? { flex: 1 } : {}}
         />
-      )}
-      <TouchableOpacity
-        style={styles.testButton}
-        onPress={() => {
-          const testNotification: Notification = {
-            id: `test-${Date.now()}`,
-            senderId: 'test-user',
-            recipientId: 'me',
-            type: NotificationType.FRIEND_REQUEST,
-            message: 'Đây là thông báo test',
-            read: false,
-            createdAt: new Date(),
-          };
-          showNotification(testNotification);
-        }}
-      >
-        <Text style={styles.testButtonText}>Test Notification</Text>
-      </TouchableOpacity>
+      )}      
     </View>
     
   );
 }
 
 const styles = StyleSheet.create({
-  testButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    backgroundColor: colors.primary,
-    padding: 12,
-    borderRadius: 8,
-  },
-  testButtonText: {
-    color: '#fff',
-    fontWeight: '500',
+  username: {
+    fontWeight: 'bold',
+    color: '#333',
   },
   container: {
     flex: 1,
@@ -329,5 +320,9 @@ const styles = StyleSheet.create({
   time: {
     fontSize: 12,
     color: '#999',
+  },
+  highlight: {
+    color: colors.primary,
+    fontWeight: 'bold',
   },
 });

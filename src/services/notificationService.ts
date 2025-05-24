@@ -37,12 +37,36 @@ import { api } from "./api";
     } else {
         senderId = backendNotification.senderId || backendNotification.sender || '';
     }
-    
+      // Map backend notification types to client enum types
+    let notificationType;
+    switch (backendNotification.type) {
+        case 'friend_request':
+            notificationType = 'FRIEND_REQUEST';
+            break;
+        case 'friend_accept':
+            notificationType = 'FRIEND_ACCEPTED';
+            break;
+        case 'like':
+            notificationType = 'POST_LIKE';
+            break;
+        case 'comment':
+            notificationType = 'POST_COMMENT';
+            break;
+        case 'nearby_post':
+            notificationType = 'POST_VIRAL';
+            break;
+        case 'friend_post':
+            notificationType = 'FRIEND_POST';
+            break;
+        default:
+            notificationType = 'FRIEND_REQUEST';
+    }
+
     return {
         id: id || '',
         recipientId,
         senderId,
-        type: backendNotification.type || 'friend_request',
+        type: notificationType as any,
         message: backendNotification.message || '',
         read: !!backendNotification.read,
         postId: backendNotification.postId || backendNotification.post,
