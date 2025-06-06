@@ -32,9 +32,9 @@ export default function NotificationsScreen() {
     markAsRead, 
     markAllAsRead 
   } = useNotificationStore();
-  
-  const [refreshing, setRefreshing] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
   const [userData, setUserData] = useState<Record<string, { avatar?: string, username?: string, fullname?: string }>>({});
+  
   useEffect(() => {
     loadNotifications();
     
@@ -58,21 +58,30 @@ export default function NotificationsScreen() {
     
     checkAuthToken();
   }, []);
-    const loadNotifications = async () => {
+
+  // Effect để load user avatars khi notifications thay đổi
+  useEffect(() => {
+    if (notifications && notifications.length > 0) {
+      loadUserAvatars(notifications);
+    }  }, [notifications]);
+  
+  const loadNotifications = async () => {
     console.log('Loading notifications...');
     await fetchNotifications();
-    console.log('Notifications loaded. Count:', notifications.length);
-    console.log('First notification sample:', notifications.length > 0 ? JSON.stringify(notifications[0]) : 'No notifications');
-    await loadUserAvatars();
+    // Sau khi fetch xong, lấy notifications mới nhất từ store để load avatars
+    // Không dùng state notifications vì có thể chưa được update
   };
   
   // Tải avatars của người gửi thông báo
-  const loadUserAvatars = async () => {
+  const loadUserAvatars = async (notificationsList?: Notification[]) => {
     try {
-      if (!notifications || notifications.length === 0) return;
+      // Sử dụng notifications từ parameter hoặc từ store
+      const notificationsToUse = notificationsList || notifications;
+      
+      if (!notificationsToUse || notificationsToUse.length === 0) return;
       
       // Lấy danh sách ID người gửi duy nhất
-      const userIds = [...new Set(notifications.map(n => n.senderId))];
+      const userIds = [...new Set(notificationsToUse.map(n => n.senderId))];
       
       // Sử dụng hàm getUserById từ userService để lấy thông tin người dùng
       const avatarsMap: Record<string, { avatar?: string, username?: string, fullname?: string }> = {};
@@ -94,18 +103,20 @@ export default function NotificationsScreen() {
       setUserData(avatarsMap);
     } catch (error) {
       console.error('Error loading user avatars:', error);
-    }
-  };
+    }  };
   
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadNotifications();
+    await fetchNotifications();
+    // Không cần gọi loadUserAvatars ở đây vì useEffect sẽ tự động gọi khi notifications thay đổi
     setRefreshing(false);
   };
-  
-  const handleNotificationPress = async (notification: Notification) => {
+    const handleNotificationPress = async (notification: Notification) => {
+    console.log('Notification pressed:', notification.id, 'Read status:', notification.read);
+    
     // Đánh dấu là đã đọc nếu chưa đọc
     if (!notification.read) {
+      console.log('Marking notification as read...');
       await markAsRead(notification.id);
     }
     
@@ -194,11 +205,13 @@ export default function NotificationsScreen() {
   );
   
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>      <View style={styles.header}>
         <Text style={styles.title}>Notification</Text>
         {notifications.length > 0 && (
-          <TouchableOpacity onPress={markAllAsRead}>
+          <TouchableOpacity onPress={async () => {
+            console.log('Mark all as read button pressed');
+            await markAllAsRead();
+          }}>
             <Text style={styles.markAllText}>Mark all as read</Text>
           </TouchableOpacity>
         )}

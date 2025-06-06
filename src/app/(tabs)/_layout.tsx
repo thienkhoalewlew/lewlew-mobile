@@ -22,6 +22,7 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textLight,
+        headerShown: false,
         tabBarStyle: {
           borderTopWidth: 1,
           borderTopColor: colors.border,
@@ -34,16 +35,6 @@ export default function TabLayout() {
         },
         tabBarIconStyle: {
           marginTop: 4,
-        },
-        headerStyle: {
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-        },
-        headerTitleStyle: {
-          fontWeight: '600',
-          fontSize: 18,
         },
       }}
     >

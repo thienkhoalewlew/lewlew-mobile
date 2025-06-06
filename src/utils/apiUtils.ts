@@ -1,4 +1,4 @@
-import { API_URL } from './api';
+import { API_URL } from '../services/api';
 
 /**
  * Kiểm tra kết nối đến backend server

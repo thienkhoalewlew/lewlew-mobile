@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ca } from 'date-fns/locale';
 
 export const API_URL = 'https://lewlew.io.vn/api';
 
@@ -291,7 +292,53 @@ export const api = {
         return { error: 'Network error. Please check your connection.' };
       }
     },
+    
+    // Like một bài viết
+    likePost: async (postId: string): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/posts/${postId}/like`, {
+          method: 'POST',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Like post error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+    
+    // Unlike một bài viết
+    unlikePost: async (postId: string): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/posts/${postId}/like`, {
+          method: 'DELETE',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Unlike post error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+    
+    // Xóa một bài viết
+    deletePost: async (postId: string): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/posts/${postId}`, {
+          method: 'DELETE',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Delete post error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
   },
+  
   //Nofitication
   notifications:{
     //get all notifications
@@ -311,9 +358,7 @@ export const api = {
         console.error('Get notifications error:', error);
         return { error: 'Network error. Please check your connection.' };
       }
-    },
-
-    //Mark notification as read
+    },    //Mark notification as read
     markAsRead: async (notificationId: string): Promise<ApiResponse<any>> => {
       try  {
         const headers = await getAuthHeaders();
@@ -327,6 +372,170 @@ export const api = {
         console.error('Mark notification as read error:', error);
         return { error: 'Network error. Please check your connection.' };
       }
+    },    // Mark all notifications as read
+    markAllAsRead: async (): Promise<ApiResponse<any>> => {
+      try {
+        console.log('API: Starting markAllAsRead request...');
+        const headers = await getAuthHeaders();
+        console.log('API: Got auth headers:', headers);
+        
+        const response = await fetch(`${API_URL}/notifications/mark-all-read`, {
+          method: 'PATCH',
+          headers,
+        });
+        
+        console.log('API: Mark all as read response status:', response.status);
+        console.log('API: Mark all as read response ok:', response.ok);
+        
+        const result = await handleResponse<any>(response);
+        console.log('API: Mark all as read result:', result);
+        
+        return result;
+      } catch (error) {
+        console.error('Mark all notifications as read error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
     }
+  },
+
+  // Upload APIs
+  uploads: {
+    // Lưu thông tin ảnh đã upload lên Cloudinary
+    saveImageInfo: async (imageData: {
+      url: string;
+      filename: string;
+      originalname: string;
+      mimetype: string;
+      size: number;
+      metadata?: any;
+    }): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/uploads`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(imageData),
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Save image info error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Lấy danh sách ảnh đã upload của user hiện tại
+    getUploadedImages: async (): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/uploads`, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Get uploaded images error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Xóa ảnh đã upload
+    deleteImage: async (imageId: string): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/uploads/${imageId}`, {
+          method: 'DELETE',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Delete image error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    }
+  },
+
+  // Comment APIs
+  comments: {
+    //Create a new comment on a post
+    createComment: async (postId: string, text: string, image?: string): Promise<ApiResponse<any>> => {
+      try{
+        const headers = await getAuthHeaders();
+        const commentData: any = { postId};
+
+        if(text) commentData.text = text;
+        if(image) commentData.image = image;
+
+        const response = await fetch(`${API_URL}/comments`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(commentData),
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Create comment error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Get comments for a post
+    getComments: async (postId: string): Promise<ApiResponse<any>> => {
+      try{
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/comments?postId=${postId}`, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<any>(response);
+      }
+      catch (error) {
+        console.error('Get comments error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Delete a comment
+    deleteComment: async (commentId: string): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/comments/${commentId}`, {
+          method: 'DELETE',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Delete comment error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    //Like a comment
+    likeComment: async (commentId: string): Promise<ApiResponse<any>> => {
+      try{
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/comments/${commentId}/like`, {
+          method: 'POST',
+          headers,
+        });
+        return handleResponse<any>(response);
+      }catch (error) {
+        console.error('Like comment error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    //Unlike a comment
+    unlikeComment: async (commentId: string): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/comments/${commentId}/like`, {
+          method: 'DELETE',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Unlike comment error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
   }
 };

@@ -18,6 +18,8 @@ import { usePostStore } from '../../store/postStore';
 import { colors } from '../../constants/colors';
 import { getUserProfileById, sendFriendRequest, unfriendUser } from '../../services/userService';
 import { Post, User } from '../../types';
+import { MapView } from '../../components/MapView';
+import { PostGroupView } from '../../components/PostGroupView';
 
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams();
@@ -30,6 +32,7 @@ export default function UserProfileScreen() {
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   const [friendStatus, setFriendStatus] = useState<'none' | 'pending' | 'accepted' | 'rejected'>('none');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedPostGroup, setSelectedPostGroup] = useState<Post[]>([]);
   
   useEffect(() => {
     const fetchProfileUser = async () => {
@@ -79,6 +82,15 @@ export default function UserProfileScreen() {
   const handleViewPost = (postId: string) => {
     router.push(`/post/${postId}`);
   };
+
+  const handleCloseGroup = () => {
+    setSelectedPostGroup([]);
+  };
+
+  const handleSelectPostFromGroup = (post: Post) => {
+    setSelectedPostGroup([]);
+    handleViewPost(post.id);
+  };
   
   const renderGridItem = ({ item }: { item: Post }) => (
     <TouchableOpacity 
@@ -87,6 +99,36 @@ export default function UserProfileScreen() {
     >
       <Image source={{ uri: item.imageUrl }} style={styles.gridImage} />
     </TouchableOpacity>
+  );
+
+  const renderMapView = () => (
+    <View style={styles.mapViewContainer}>
+      <MapView
+        posts={userPosts}
+        selectedPostId={undefined}
+        onMarkerPress={(postOrGroup) => {
+          if(Array.isArray(postOrGroup)) {
+            setSelectedPostGroup(postOrGroup);
+          }
+          else {
+            handleViewPost(postOrGroup.id);
+          }
+        }}
+        showUserLocation={false}
+        user={profileUser || undefined}
+        filterByRadius={false}
+      />
+      
+      {/* Map overlay info */}
+      <View style={styles.mapOverlayInfo}>
+        <Text style={styles.mapInfoText}>
+          {userPosts.length} {userPosts.length === 1 ? 'post' : 'posts'} on map
+        </Text>
+        <Text style={styles.mapInfoSubtext}>
+          Tap markers to view posts
+        </Text>
+      </View>
+    </View>
   );
   
   if (!profileUser) return null;
@@ -197,13 +239,29 @@ export default function UserProfileScreen() {
             </View>
           )
         ) : (
-          <View style={styles.mapContainer}>
-            <Text style={styles.mapPlaceholder}>
-              Map view of user photos
-            </Text>
-          </View>
+          /* Map View */
+          userPosts.length > 0 ? (
+            renderMapView()
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Map size={40} color={colors.textLight} />
+              <Text style={styles.emptyTitle}>No posts to show on map</Text>
+              <Text style={styles.emptyText}>
+                No photos with location shared yet
+              </Text>
+            </View>
+          )
         )}
       </ScrollView>
+      
+      {/* PostGroupView for clusters */}
+      {selectedPostGroup.length > 0 && (
+        <PostGroupView
+          posts={selectedPostGroup}
+          onClose={handleCloseGroup}
+          onSelectPost={handleSelectPostFromGroup}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -336,9 +394,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 8,
+    marginBottom: 4,
+  },
   emptyText: {
     fontSize: 14,
     color: colors.textLight,
     textAlign: 'center',
+  },
+  // Map View Styles
+  mapViewContainer: {
+    height: 400,
+    margin: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colors.card,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  mapOverlayInfo: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  mapInfoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  mapInfoSubtext: {
+    fontSize: 12,
+    color: colors.textLight,
+    marginTop: 2,
   },
 });

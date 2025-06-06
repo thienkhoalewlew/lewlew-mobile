@@ -13,8 +13,9 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Settings, LogOut, Edit2, Grid, Map, Image as ImageIcon } from 'lucide-react-native';
+import { Settings, LogOut, Edit2, Grid, Map, Image as ImageIcon, Folder } from 'lucide-react-native';
 import { RefreshControl } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '../../components/Button';
 import { useAuthStore } from '../../store/authStore';
@@ -23,16 +24,22 @@ import { useUserStore } from '../../store/userStore';
 import { colors } from '../../constants/colors';
 import { Post } from '../../types';
 import { pickImage } from '../../services/cloudinaryService';
+import { MapView } from '../../components/MapView';
+import { PostGroupView } from '../../components/PostGroupView';
+import ImageGallery from '../../components/ImageGallery';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { logout, token } = useAuthStore();
   const { posts, getUserPosts, isLoading: postsLoading } = usePostStore();
   const { currentUser, isLoading: userLoading, error, updateUserAvatar, getCurrentUserProfile } = useUserStore();
+  const insets = useSafeAreaInsets();
 
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedPostGroup, setSelectedPostGroup] = useState<Post[]>([]);
+  const [showImageGallery, setShowImageGallery] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -125,6 +132,15 @@ export default function ProfileScreen() {
     router.push(`/post/${postId}`);
   };
 
+  const handleCloseGroup = () => {
+    setSelectedPostGroup([]);
+  };
+
+  const handleSelectPostFromGroup = (post: Post) => {
+    setSelectedPostGroup([]);
+    handleViewPost(post.id);
+  };
+
   const renderGridItem = ({ item }: { item: Post }) => (
     <TouchableOpacity 
       style={styles.gridItem}
@@ -132,6 +148,36 @@ export default function ProfileScreen() {
     >
       <Image source={{ uri: item.imageUrl }} style={styles.gridImage} />
     </TouchableOpacity>
+  );
+
+  const renderMapView = () => (
+    <View style={styles.mapViewContainer}>
+      <MapView
+        posts={userPosts}
+        selectedPostId={undefined}
+        onMarkerPress={(postOrGroup) => {
+          if(Array.isArray(postOrGroup)) {
+            setSelectedPostGroup(postOrGroup);
+          }
+          else {
+            handleViewPost(postOrGroup.id);
+          }
+        }}
+        showUserLocation={false}
+        user={currentUser || undefined}
+        filterByRadius={false}
+      />
+      
+      {/* Map overlay info */}
+      <View style={styles.mapOverlayInfo}>
+        <Text style={styles.mapInfoText}>
+          {userPosts.length} {userPosts.length === 1 ? 'post' : 'posts'} on map
+        </Text>
+        <Text style={styles.mapInfoSubtext}>
+          Tap markers to view posts
+        </Text>
+      </View>
+    </View>
   );
 
   if (userLoading) {
@@ -145,30 +191,20 @@ export default function ProfileScreen() {
   if (!currentUser) return null;
 
   return (
-    <SafeAreaView style={styles.container} edges={['right', 'left']}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
       
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerButton}>
-            <Settings size={24} color={colors.text} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.headerButton}
-            onPress={handleLogout}
-          >
-            <LogOut size={24} color={colors.text} />
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.title}>Profile</Text>
+        <TouchableOpacity onPress={handleLogout}>
+          <LogOut size={20} color={colors.text} />
+        </TouchableOpacity>
       </View>
       
       <ScrollView
+        style={styles.scrollContainer}
         refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={handleRefresh} 
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
         <View style={styles.profileHeader}>
@@ -200,6 +236,15 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>Friends</Text>
             </View>
           </View>
+          
+          {/* Image Gallery Button */}
+          <TouchableOpacity 
+            style={styles.imageGalleryButton}
+            onPress={() => setShowImageGallery(true)}
+          >
+            <Folder size={20} color={colors.primary} />
+            <Text style={styles.imageGalleryButtonText}>View All Images</Text>
+          </TouchableOpacity>
         </View>
         
         <View style={styles.contentHeader}>
@@ -256,14 +301,44 @@ export default function ProfileScreen() {
             </View>
           )
         ) : (
-          <View style={styles.mapContainer}>
-            <Text style={styles.mapPlaceholder}>
-              Map view of your photos
-            </Text>
-          </View>
+          /* Map View */
+          userPosts.length > 0 ? (
+            renderMapView()
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Map size={40} color={colors.textLight} />
+              <Text style={styles.emptyTitle}>No posts to show on map</Text>
+              <Text style={styles.emptyText}>
+                Create posts with location to see them on the map
+              </Text>
+              <Button
+                title="Create Post"
+                onPress={() => router.push('/(tabs)/create')}
+                style={styles.createButton}
+                size="small"
+              />
+            </View>
+          )
         )}
       </ScrollView>
-    </SafeAreaView>
+      
+      {/* PostGroupView for clusters */}
+      {selectedPostGroup.length > 0 && (
+        <PostGroupView
+          posts={selectedPostGroup}
+          onClose={handleCloseGroup}
+          onSelectPost={handleSelectPostFromGroup}
+        />
+      )}
+      
+      {/* Image Gallery Modal */}
+      <ImageGallery
+        visible={showImageGallery}
+        onClose={() => setShowImageGallery(false)}
+        filterType="all"
+        selectionMode={false}
+      />
+    </View>
   );
 }
 
@@ -284,24 +359,18 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    alignItems: 'center',
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.card,
+    borderBottomColor: '#f0f0f0',
   },
-  headerTitle: {
+  title: {
     fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
+    fontWeight: 'bold',
   },
-  headerActions: {
-    flexDirection: 'row',
-  },
-  headerButton: {
-    marginLeft: 16,
+  scrollContainer: {
+    flex: 1,
   },
   profileHeader: {
     alignItems: 'center',
@@ -441,5 +510,61 @@ const styles = StyleSheet.create({
   },
   createButton: {
     width: 150,
+  },
+  // Image Gallery Button Styles
+  imageGalleryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 16,
+  },
+  imageGalleryButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.primary,
+  },
+  // Map View Styles
+  mapViewContainer: {
+    height: 400,
+    margin: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colors.card,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  mapOverlayInfo: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  mapInfoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  mapInfoSubtext: {
+    fontSize: 12,
+    color: colors.textLight,
+    marginTop: 2,
   },
 });

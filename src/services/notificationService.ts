@@ -106,3 +106,30 @@ export const markNotificationAsRead = async (notificationId: string): Promise<bo
         return false;
     }
 }
+
+export const markAllNotificationsAsRead = async (): Promise<boolean> => {
+    try {
+        console.log('NotificationService: Starting markAllNotificationsAsRead...');
+        const response = await api.notifications.markAllAsRead();
+        console.log('NotificationService: markAllAsRead response:', response);
+        
+        // Check if the response has an error
+        if (response.error) {
+            console.error('NotificationService: API error:', response.error);
+            return false;
+        }
+        
+        // If no error and we have data (success message), consider it successful
+        if (response.data) {
+            console.log('NotificationService: markAllAsRead successful, received:', response.data);
+            return true;
+        }
+        
+        // If no error and no data, still consider it successful (some APIs return empty success)
+        console.log('NotificationService: markAllAsRead successful (no data returned)');
+        return true;
+    } catch (error) {
+        console.error("NotificationService: Error marking all notifications as read:", error);
+        return false;
+    }
+}

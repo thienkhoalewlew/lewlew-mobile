@@ -15,29 +15,44 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, MapPin, X, Image as ImageIcon } from 'lucide-react-native';
+import { Camera, X, Image as ImageIcon } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '../../components/Button';
+import { LocationInput } from '../../components/LocationInput';
 import { usePostStore } from '../../store/postStore';
-import { useLocationStore } from '../../store/locationStore';
 import { useAuthStore } from '../../store/authStore';
+import { useReverseGeocoding } from '../../hooks/useReverseGeocoding';
+import { LocationHistoryService } from '../../services/locationHistoryService';
 import { colors } from '../../constants/colors';
 
 export default function CreatePostScreen() {
   const router = useRouter();
   const { createPost, isLoading } = usePostStore();
-  const { currentLocation, getCurrentLocation } = useLocationStore();
   const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
   
   const [image, setImage] = useState<string | null>(null);
   const [caption, setCaption] = useState('');
-  const [locationName, setLocationName] = useState('');
+  const [locationNameInput, setLocationNameInput] = useState('');
   
-  useEffect(() => {
-    if (!currentLocation) {
-      getCurrentLocation();
-    }
-  }, []); 
+  // Use reverse geocoding hook
+  const {
+    isLoading: isLoadingLocation,
+    locationName: autoDetectedLocationName,
+    currentLocation,
+    refreshLocation,
+    error: locationError,
+  } = useReverseGeocoding({
+    autoUpdate: true,
+    onLocationNameChange: (name) => {
+      if (name && !locationNameInput) {
+        setLocationNameInput(name);
+      }
+    },
+  });
+  
+  const locationName = locationNameInput || autoDetectedLocationName || '';
   
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -74,8 +89,12 @@ export default function CreatePostScreen() {
   const clearImage = () => {
     setImage(null);
   };
-  
-  const handleCreatePost = async () => {
+    const handleCreatePost = async () => {
+    // Prevent multiple submissions
+    if (isLoading) {
+      return;
+    }
+
     if (!user) {
       Alert.alert('Error', 'You must be logged in to create a post');
       return;
@@ -95,13 +114,13 @@ export default function CreatePostScreen() {
       Alert.alert('Missing location', 'Please add a location name');
       return;
     }
-    
-    if (!currentLocation) {
+      if (!currentLocation) {
       Alert.alert('Location unavailable', 'Unable to get your current location');
       return;
     }
+
     try {
-      await createPost({
+      const result = await createPost({
         userId: user.id,
         imageUrl: image,
         caption,
@@ -111,11 +130,25 @@ export default function CreatePostScreen() {
           name: locationName,
         },
       });
-      
+
+      // Check if post creation was successful
+      if (!result) {
+        Alert.alert('Error', 'Failed to create post. Please try again.');
+        return;
+      }
+
+      // Save location to history after successful post creation
+      await LocationHistoryService.addToHistory(
+        locationName,
+        currentLocation.latitude,
+        currentLocation.longitude,
+        locationName === autoDetectedLocationName
+      );
+
       // Reset form
       setImage(null);
       setCaption('');
-      setLocationName('');
+      setLocationNameInput('');
 
       Alert.alert('Success', 'Your post has been created successfully!');
 
@@ -127,14 +160,17 @@ export default function CreatePostScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['right', 'left']}>
-      <StatusBar style="dark" />
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Create</Text>
+      </View>
+      
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.title}>Create New Post</Text>
+          <Text style={styles.subtitle}>Create New Post</Text>
           
           {image ? (
             <View style={styles.imageContainer}>
@@ -176,25 +212,14 @@ export default function CreatePostScreen() {
               multiline
               maxLength={500}
             />
-          </View>
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Location</Text>
-            <View style={styles.locationInputContainer}>
-              <MapPin size={20} color={colors.textLight} style={styles.locationIcon} />
-              <TextInput
-                style={styles.locationInput}
-                placeholder="Add location name"
-                value={locationName}
-                onChangeText={setLocationName}
-              />
-            </View>
-            <Text style={styles.locationInfo}>
-              {currentLocation 
-                ? `Using your current location (${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)})` 
-                : 'Getting your location...'}
-            </Text>
-          </View>
+          </View>          <LocationInput
+            currentLocation={currentLocation}
+            currentLocationName={autoDetectedLocationName}
+            locationName={locationName}
+            onLocationNameChange={setLocationNameInput}
+            onRefreshLocation={refreshLocation}
+            isLoading={isLoadingLocation}
+          />
           
           <Button
             title="Share Post"
@@ -205,7 +230,7 @@ export default function CreatePostScreen() {
           />
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -213,6 +238,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -220,7 +256,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
   },
-  title: {
+  subtitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: colors.text,
@@ -271,8 +307,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     color: colors.primary,
     fontWeight: '500',
-  },
-  formGroup: {
+  },  formGroup: {
     marginBottom: 20,
   },
   label: {
@@ -291,29 +326,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     minHeight: 100,
     textAlignVertical: 'top',
-  },
-  locationInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-  },
-  locationIcon: {
-    marginRight: 8,
-  },
-  locationInput: {
-    flex: 1,
-    padding: 12,
-    fontSize: 16,
-    color: colors.text,
-  },
-  locationInfo: {
-    fontSize: 12,
-    color: colors.textLight,
-    marginTop: 4,
   },
   shareButton: {
     marginTop: 16,

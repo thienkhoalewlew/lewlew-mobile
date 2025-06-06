@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Post, PostState, Region } from '../types';
-import { getNearbyPosts, getFriendPosts, createPost as apiCreatePost, getUserPosts } from '../services/postService';
+import { getNearbyPosts, getFriendPosts, createPost as apiCreatePost, getUserPosts, likePost as apiLikePost, unlikePost as apiUnlikePost, deletePostById as apiDeletePost } from '../services/postService';
 
 export const usePostStore = create<PostState>()(
   persist(
@@ -64,7 +64,8 @@ export const usePostStore = create<PostState>()(
         }
       },
 
-      likePost: (postId, userId) => {
+      likePost: async (postId, userId) => {
+        // Cập nhật UI ngay lập tức
         set(state => ({
           posts: state.posts.map(post => 
             post.id === postId && !post.likes.includes(userId)
@@ -72,9 +73,36 @@ export const usePostStore = create<PostState>()(
               : post
           )
         }));
+
+        // Gọi API để sync với backend
+        try {
+          const result = await apiLikePost(postId);
+          if (!result.success) {
+            // Revert nếu API call thất bại
+            set(state => ({
+              posts: state.posts.map(post => 
+                post.id === postId
+                  ? { ...post, likes: post.likes.filter(id => id !== userId) }
+                  : post
+              )
+            }));
+            console.error('Failed to like post:', result.error);
+          }
+        } catch (error) {
+          // Revert nếu có lỗi
+          set(state => ({
+            posts: state.posts.map(post => 
+              post.id === postId
+                ? { ...post, likes: post.likes.filter(id => id !== userId) }
+                : post
+            )
+          }));
+          console.error('Error calling like API:', error);
+        }
       },
 
-      unlikePost: (postId, userId) => {
+      unlikePost: async (postId, userId) => {
+        // Cập nhật UI ngay lập tức
         set(state => ({
           posts: state.posts.map(post => 
             post.id === postId
@@ -82,28 +110,54 @@ export const usePostStore = create<PostState>()(
               : post
           )
         }));
+
+        // Gọi API để sync với backend
+        try {
+          const result = await apiUnlikePost(postId);
+          if (!result.success) {
+            // Revert nếu API call thất bại
+            set(state => ({
+              posts: state.posts.map(post => 
+                post.id === postId && !post.likes.includes(userId)
+                  ? { ...post, likes: [...post.likes, userId] }
+                  : post
+              )
+            }));
+            console.error('Failed to unlike post:', result.error);
+          }
+        } catch (error) {
+          // Revert nếu có lỗi
+          set(state => ({
+            posts: state.posts.map(post => 
+              post.id === postId && !post.likes.includes(userId)
+                ? { ...post, likes: [...post.likes, userId] }
+                : post
+            )
+          }));
+          console.error('Error calling unlike API:', error);
+        }
       },
 
-      addComment: (postId, userId, text) => {
-        const newComment = {
-          id: `comment-${Date.now()}`,
-          userId,
-          postId,
-          text,
-          createdAt: new Date(),
-        };
+      // Comment functionality moved to commentStore
+      // Use useCommentStore for comment-related operations
 
-        set(state => ({
-          posts: state.posts.map(post => 
-            post.id === postId ? { ...post, comments: [...post.comments, newComment] } : post
-          )
-        }));
-      },
-
-      deletePost: (postId) => {
-        set(state => ({
-          posts: state.posts.filter(post => post.id !== postId)
-        }));
+      deletePost: async (postId) => {
+        try {
+          const result = await apiDeletePost(postId);
+          if (result.success) {
+            // Xóa khỏi state nếu API thành công
+            set(state => ({
+              posts: state.posts.filter(post => post.id !== postId)
+            }));
+            return { success: true, message: result.message };
+          } else {
+            console.error('Failed to delete post:', result.error);
+            return { success: false, error: result.error };
+          }
+        } catch (error) {
+          console.error('Error calling delete API:', error);
+          return { success: false, error: 'Unable to delete post. Please try again later.' };
+        }
       },
 
       getNearbyPosts: async (region: Region) => {

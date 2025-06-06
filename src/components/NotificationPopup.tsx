@@ -4,7 +4,8 @@ import {
   Text, 
   StyleSheet, 
   Animated, 
-  TouchableOpacity
+  TouchableOpacity,
+  Image
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Notification } from '../types';
@@ -14,14 +15,16 @@ interface NotificationPopupProps {
   notification: Notification | null;
   onPress: (notification: Notification) => void;
   onDismiss: () => void;
-  senderName?: string; // Added to display sender's name
+  senderName?: string; // Display sender's name
+  senderAvatar?: string; // Display sender's avatar
 }
 
 export const NotificationPopup: React.FC<NotificationPopupProps> = ({
   notification,
   onPress,
   onDismiss,
-  senderName
+  senderName,
+  senderAvatar
 }) => {
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-100)).current;
@@ -88,19 +91,24 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
         style={styles.content}
         activeOpacity={0.8}
         onPress={handlePress}
-      >
-        <View style={styles.avatarContainer}>
-          <View style={styles.defaultAvatar}>
-            <Text style={styles.avatarText}>
-              {notification.senderId && typeof notification.senderId === 'string' 
-                ? (notification.senderId.length > 0 ? notification.senderId.charAt(0).toUpperCase() : '?') 
-                : '?'}
-            </Text>
-          </View>
-        </View>        <View style={styles.textContainer}>
-          <Text style={styles.title}>
+      >        <View style={styles.avatarContainer}>
+          {senderAvatar ? (
+            <Image 
+              source={{ uri: senderAvatar }} 
+              style={styles.avatar} 
+            />
+          ) : (
+            <View style={styles.defaultAvatar}>
+              <Text style={styles.avatarText}>
+                {senderName ? senderName.charAt(0).toUpperCase() : '?'}
+              </Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.textContainer}>          <Text style={styles.title}>
             {notification.type === 'FRIEND_POST' ? 'Bài viết mới' : 'Thông báo mới'}
-          </Text>          <Text style={styles.message} numberOfLines={2}>
+          </Text>
+          <Text style={styles.message} numberOfLines={2}>
             <Text style={styles.senderName}>{senderName || 'Someone'}</Text>
             <Text>{' '}{notification.message}</Text>
           </Text>
@@ -143,9 +151,13 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  avatarContainer: {
+  },  avatarContainer: {
     marginRight: 12,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   defaultAvatar: {
     width: 40,
@@ -172,10 +184,10 @@ const styles = StyleSheet.create({
   message: {
     fontSize: 13,
     color: '#666',
-  },
-  closeButton: {
+  },  closeButton: {
     padding: 4,
-  },  closeText: {
+  },
+  closeText: {
     fontSize: 22,
     color: '#999',
     fontWeight: 'bold',

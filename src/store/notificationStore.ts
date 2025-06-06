@@ -38,12 +38,13 @@ export const useNotificationStore = create<NotificationState>()(
           set({ error: errorMessage, isLoading: false });
         }
       },
-      
-      markAsRead: async (notificationId: string) => {
+        markAsRead: async (notificationId: string) => {
         try {
+          console.log('NotificationStore: Marking notification as read:', notificationId);
           const success = await notificationService.markNotificationAsRead(notificationId);
           
           if (success) {
+            console.log('NotificationStore: Successfully marked notification as read');
             // Update local state
             set(state => {
               const updatedNotifications = state.notifications.map(notification =>
@@ -51,25 +52,40 @@ export const useNotificationStore = create<NotificationState>()(
                   ? { ...notification, read: true }
                   : notification
               );
+              const newUnreadCount = updatedNotifications.filter(n => !n.read).length;
+              
+              console.log('NotificationStore: Updated unread count:', newUnreadCount);
               
               return {
                 notifications: updatedNotifications,
-                unreadCount: updatedNotifications.filter(n => !n.read).length
+                unreadCount: newUnreadCount
               };
             });
+          } else {
+            console.error('NotificationStore: Failed to mark notification as read');
           }
         } catch (error) {
-          console.error('Error marking notification as read:', error);
+          console.error('NotificationStore: Error marking notification as read:', error);
         }
-      },
-      
-      markAllAsRead: async () => {
-        // You would need to implement this endpoint on your backend
-        // For now, we'll just update the local state
-        set(state => ({
-          notifications: state.notifications.map(n => ({ ...n, read: true })),
-          unreadCount: 0
-        }));
+      },      markAllAsRead: async () => {
+        try {
+          console.log('NotificationStore: Marking all notifications as read...');
+          const success = await notificationService.markAllNotificationsAsRead();
+          console.log('NotificationStore: markAllNotificationsAsRead returned:', success);
+          
+          if (success) {
+            // Update local state
+            set(state => ({
+              notifications: state.notifications.map(n => ({ ...n, read: true })),
+              unreadCount: 0
+            }));
+            console.log('NotificationStore: All notifications marked as read successfully, local state updated');
+          } else {
+            console.error('NotificationStore: Failed to mark all notifications as read - API call failed');
+          }
+        } catch (error) {
+          console.error('NotificationStore: Error marking all notifications as read:', error);
+        }
       },
       
       initializeSocket: (token: string) => {

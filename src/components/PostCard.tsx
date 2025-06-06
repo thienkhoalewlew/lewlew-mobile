@@ -5,16 +5,23 @@ import {
   StyleSheet, 
   Image, 
   TouchableOpacity,
-  Dimensions
+  Dimensions,
+  Alert,
+  ActionSheetIOS,
+  Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Heart, MessageCircle, Navigation, MoreHorizontal } from 'lucide-react-native';
+import { Heart, Navigation, MoreHorizontal } from 'lucide-react-native';
 import { Post, User } from '../types';
 import { colors } from '../constants/colors';
 import { getUserById } from '../services/userService';
 import { useAuthStore } from '../store/authStore';
 import { usePostStore } from '../store/postStore';
 import { ensureStringId } from '../services/postService';
+import { formatTimeAgo } from '../utils/timeUtils';
+import { CommentButton } from './comments';
+import { useCommentStore } from '../store/commentStore';
+import { useLocationStore } from '../store/locationStore';
 
 interface PostCardProps {
   post: Post;
@@ -27,10 +34,17 @@ export const PostCard: React.FC<PostCardProps> = ({
 }) => {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { likePost, unlikePost } = usePostStore();
+  const { likePost, unlikePost, deletePost } = usePostStore();
+  const { comments } = useCommentStore();
+  const { currentLocation } = useLocationStore();
   
   // Sử dụng state để lưu thông tin người dùng
   const [postUser, setPostUser] = React.useState<User | null>(null);
+  const [isLiked, setIsLiked] = useState<boolean>(false);
+  const [likesCount, setLikesCount] = useState<number>(0);
+  
+  // Get actual comment count from comment store
+  const actualCommentCount = comments[post.id]?.length || post.comments.length;
   
   // Lấy thông tin người dùng khi component được render
   React.useEffect(() => {
@@ -46,15 +60,36 @@ export const PostCard: React.FC<PostCardProps> = ({
     
     fetchUser();
   }, [post.userId]);
-  const isLiked = user ? post.likes.includes(user.id) : false;
+
+  // Cập nhật trạng thái like và số like khi post hoặc user thay đổi
+  useEffect(() => {
+    if (user) {
+      setIsLiked(post.likes.includes(user.id));
+    }
+    setLikesCount(post.likes.length);
+  }, [post.likes, user]);
   
-  const handleLikeToggle = () => {
+  const handleLikeToggle = async () => {
     if (!user) return;
     
-    if (isLiked) {
-      unlikePost(post.id, user.id);
-    } else {
-      likePost(post.id, user.id);
+    try {
+      // Cập nhật UI ngay lập tức để có UX tốt hơn
+      const newLikedState = !isLiked;
+      setIsLiked(newLikedState);
+      
+      // Cập nhật số like ngay lập tức
+      setLikesCount(prevCount => newLikedState ? prevCount + 1 : prevCount - 1);
+      
+      if (isLiked) {
+        await unlikePost(post.id, user.id);
+      } else {
+        await likePost(post.id, user.id);
+      }
+    } catch (error) {
+      // Revert lại state nếu có lỗi
+      setIsLiked(isLiked);
+      setLikesCount(post.likes.length);
+      console.error('Error toggling like:', error);
     }
   };
   
@@ -68,24 +103,83 @@ export const PostCard: React.FC<PostCardProps> = ({
     router.push(`/profile/${userId}`);
   };
   
-  const handleViewLocation = () => {
-    router.push({
-      pathname: '/map',
-      params: { 
-        latitude: post.location.latitude, 
-        longitude: post.location.longitude,
-        postId: post.id
-      }
-    });
+
+  const handleDeletePost = async () => {
+    if (!user) return;
+    
+    const isOwner = ensureStringId(post.userId) === user.id;
+    if (!isOwner) {
+      Alert.alert('Error', 'You can only delete your own posts');
+      return;
+    }
+
+    Alert.alert(
+      'Delete Post',
+      'Are you sure you want to delete this post? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deletePost(post.id);
+              Alert.alert('Success', 'Post deleted successfully');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete post. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
-  
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
+
+  const handleMoreOptions = () => {
+    if (!user) return;
+    
+    const isOwner = ensureStringId(post.userId) === user.id;
+    
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: isOwner ? ['Cancel', 'Delete Post'] : ['Cancel', 'Report Post'],
+          destructiveButtonIndex: 1,
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            if (isOwner) {
+              handleDeletePost();
+            } else {
+              Alert.alert('Report', 'Report functionality coming soon');
+            }
+          }
+        }
+      );
+    } else {
+      if (isOwner) {
+        Alert.alert(
+          'Post Options', 
+          'Choose an action',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete Post', style: 'destructive', onPress: handleDeletePost }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Post Options', 
+          'Choose an action',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Report Post', onPress: () => Alert.alert('Report', 'Report functionality coming soon') }
+          ]
+        );
+      }
+    }
   };
 
   return (
@@ -109,9 +203,16 @@ export const PostCard: React.FC<PostCardProps> = ({
             </Text>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity>
-          <MoreHorizontal size={20} color={colors.text} />
-        </TouchableOpacity>
+        {showActions && (
+          <TouchableOpacity onPress={handleMoreOptions}>
+            <MoreHorizontal size={20} color={colors.text} />
+          </TouchableOpacity>
+        )}
+      </View>
+      
+      {/* Caption moved under username */}
+      <View style={styles.captionContainer}>
+        <Text style={styles.caption}>{post.caption}</Text>
       </View>
       
       <TouchableOpacity onPress={handleViewPost}>
@@ -132,34 +233,33 @@ export const PostCard: React.FC<PostCardProps> = ({
                 fill={isLiked ? colors.secondary : 'transparent'} 
               />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton} onPress={handleViewPost}>
-              <MessageCircle size={24} color={colors.text} />
-            </TouchableOpacity>
+            <CommentButton 
+              postId={post.id} 
+              commentCount={actualCommentCount}
+              size="medium"
+              showCount={false}
+              color={colors.text}
+            />
           </View>
-          <TouchableOpacity style={styles.actionButton} onPress={handleViewLocation}>
+          <TouchableOpacity 
+            style={styles.actionButton} 
+          >
             <Navigation size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
       )}
       
       <View style={styles.content}>
-        <Text style={styles.likesCount}>{post.likes.length} likes</Text>
-        <View style={styles.captionContainer}>
-          <Text style={styles.captionUsername}>
-            {postUser ? postUser.fullname || postUser.username || 'User' : 'User'}
-          </Text>
-          <Text style={styles.caption}>{post.caption}</Text>
-        </View>
-        
-        {post.comments.length > 0 && (
-          <TouchableOpacity onPress={handleViewPost}>
-            <Text style={styles.viewComments}>
-              View all {post.comments.length} comments
-            </Text>
-          </TouchableOpacity>
+        {showActions && (
+          <>
+            <Text style={styles.likesCount}>{likesCount} likes</Text>
+            <Text style={styles.commentsCount}>{actualCommentCount} comments</Text>
+          </>
         )}
         
-        <Text style={styles.timestamp}>{formatDate(post.createdAt.toString())}</Text>
+        <Text style={styles.timestamp}>
+          {formatTimeAgo(new Date(post.createdAt))}
+        </Text>
       </View>
     </View>
   );
@@ -169,12 +269,12 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.card,
     borderRadius: 12,
-    marginBottom: 16,
     overflow: 'hidden',
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowRadius: 2,
     elevation: 2,
   },
   header: {
@@ -188,15 +288,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
   },
   username: {
-    fontWeight: '600',
-    fontSize: 14,
+    fontWeight: 'bold',
     color: colors.text,
+    marginRight: 6,
   },
   location: {
     fontSize: 12,
@@ -206,52 +306,54 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: 300,
+    backgroundColor: '#f0f0f0',
   },
   actions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   leftActions: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
   actionButton: {
-    marginRight: 16,
+    marginRight: 12, // Reduced from 16 to 12
+    padding: 4,
   },
   content: {
-    paddingHorizontal: 12,
-    paddingBottom: 12,
+    padding: 12,
+    paddingTop: 8,
   },
   likesCount: {
-    fontWeight: '600',
-    fontSize: 14,
-    marginBottom: 6,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    marginTop: 2,
     color: colors.text,
+    fontSize: 13,
+  },
+  commentsCount: {
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: colors.text,
+    fontSize: 13,
   },
   captionContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 6,
-  },
-  captionUsername: {
-    fontWeight: '600',
-    fontSize: 14,
-    marginRight: 6,
-    color: colors.text,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingTop: 8,
   },
   caption: {
-    fontSize: 14,
     color: colors.text,
+    lineHeight: 20,
     flex: 1,
     flexWrap: 'wrap',
   },
-  viewComments: {
-    fontSize: 14,
-    color: colors.textLight,
-    marginBottom: 6,
-  },
   timestamp: {
-    fontSize: 12,
     color: colors.textLight,
+    fontSize: 12,
   },
 });

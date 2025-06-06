@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   FlatList, 
   RefreshControl,
-  ActivityIndicator
+  ActivityIndicator,
+  Animated
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -25,6 +26,11 @@ export default function HomeScreen() {
   const [feedPosts, setFeedPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [feedType, setFeedType] = useState<'nearby' | 'friends'>('nearby');
+  
+  // Animation states
+  const headerTranslateY = useRef(new Animated.Value(0)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const lastScrollY = useRef(0);
   
   useEffect(() => {
     loadFeed();
@@ -97,6 +103,37 @@ export default function HomeScreen() {
     await loadFeed();
     setRefreshing(false);
   };
+
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    {
+      useNativeDriver: false,
+      listener: (event: any) => {
+        const currentScrollY = event.nativeEvent.contentOffset.y;
+        const diff = currentScrollY - lastScrollY.current;
+        
+        // Chỉ ẩn/hiện khi scroll đủ xa (tránh hiệu ứng nhấp nháy)
+        if (Math.abs(diff) > 10) {
+          if (diff > 0 && currentScrollY > 80) {
+            // Scroll xuống - ẩn header
+            Animated.timing(headerTranslateY, {
+              toValue: -100,
+              duration: 250,
+              useNativeDriver: true,
+            }).start();
+          } else if (diff < 0 || currentScrollY <= 0) {
+            // Scroll lên hoặc về đầu trang - hiện header
+            Animated.timing(headerTranslateY, {
+              toValue: 0,
+              duration: 250,
+              useNativeDriver: true,
+            }).start();
+          }
+          lastScrollY.current = currentScrollY;
+        }
+      },
+    }
+  );
   
   const toggleFeedType = () => {
     setFeedType(feedType === 'nearby' ? 'friends' : 'nearby');
@@ -115,7 +152,15 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container} edges={['right', 'left']}>
       <StatusBar style="dark" />
       
-      <View style={styles.header}>
+      {/* Animated Header */}
+      <Animated.View 
+        style={[
+          styles.header, 
+          {
+            transform: [{ translateY: headerTranslateY }],
+          }
+        ]}
+      >
         <Text style={styles.headerTitle}>PhotoMap</Text>
         <View style={styles.feedToggle}>
           <Text 
@@ -137,13 +182,15 @@ export default function HomeScreen() {
             Friends
           </Text>
         </View>
-      </View>
+      </Animated.View>
       
       <FlatList
         data={feedPosts}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <PostCard post={item} />}
         contentContainerStyle={styles.listContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -177,11 +224,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
+    paddingTop: 20, // Tụt xuống một chút
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     backgroundColor: colors.card,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerTitle: {
     fontSize: 22,
@@ -209,6 +267,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+    paddingTop: 100, // Thêm space cho header
   },
   loadingContainer: {
     flex: 1,

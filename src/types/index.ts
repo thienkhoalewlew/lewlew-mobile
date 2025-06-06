@@ -10,6 +10,15 @@ export interface User {
   requestId?: string; // ID của yêu cầu kết bạn (nếu có)
   createdAt: Date; // Ngày tạo tài khoản
   token?: string; // JWT token từ backend (nếu có)
+  settings?: {
+    notificationRadius: number; // Bán kính thông báo (km)
+    pushNotifications: boolean;
+    emailNotifications: boolean;
+  };
+  location?: {
+    type: string;
+    coordinates: number[]; // [longitude, latitude]
+  };
 }
 
 export interface Post {
@@ -29,10 +38,37 @@ export interface Post {
 
 export interface Comment {
   id: string;
-  userId: string;
+  post: string;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+    avatar?: string;
+  };
+  text?: string;
+  image?: string;
+  likes: string[];
+  likeCount: number;
+  createdAt: string;
+}
+
+export interface CreateCommentData {
   postId: string;
-  text: string;
-  createdAt: Date;
+  text?: string;
+  image?: string;
+}
+
+export interface CommentState {
+  comments: { [postId: string]: Comment[] };
+  loading: boolean;
+  error: string | null;
+  createComment: (commentData: CreateCommentData) => Promise<boolean>;
+  getComments: (postId: string) => Promise<void>;
+  deleteComment: (commentId: string, postId: string) => Promise<boolean>;
+  likeComment: (commentId: string, postId: string) => Promise<boolean>;
+  unlikeComment: (commentId: string, postId: string) => Promise<boolean>;
+  clearComments: (postId: string) => void;
+  clearError: () => void;
 }
 
 export interface Region {
@@ -61,10 +97,9 @@ export interface PostState {
   isLoading: boolean;
   error: string | null;
   createPost: (post: Omit<Post, 'id' | 'likes' | 'comments' | 'createdAt'>) => Promise<Post | null>;
-  likePost: (postId: string, userId: string) => void;
-  unlikePost: (postId: string, userId: string) => void;
-  addComment: (postId: string, userId: string, text: string) => void;
-  deletePost: (postId: string) => void;
+  likePost: (postId: string, userId: string) => Promise<void>;
+  unlikePost: (postId: string, userId: string) => Promise<void>;
+  deletePost: (postId: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   getNearbyPosts: (region: Region) => Promise<Post[]>;
   getFriendPosts: () => Promise<Post[]>;
   getUserPosts: () => Promise<Post[]>;
@@ -75,9 +110,11 @@ export interface LocationState {
     latitude: number;
     longitude: number;
   } | null;
+  currentLocationName: string | null;
   isLoading: boolean;
   error: string | null;
   getCurrentLocation: () => Promise<void>;
+  reverseGeocode: (latitude: number, longitude: number) => Promise<string | null>;
 }
 
 export interface FriendState {

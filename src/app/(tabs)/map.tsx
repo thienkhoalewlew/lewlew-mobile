@@ -6,27 +6,31 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Navigation, Layers, RefreshCw } from 'lucide-react-native';
+import { RefreshCw } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MapView } from '../../components/MapView';
 import { PostCard } from '../../components/PostCard';
+import { PostGroupView } from '../../components/PostGroupView';
 import { usePostStore } from '../../store/postStore';
 import { useLocationStore } from '../../store/locationStore';
+import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../constants/colors';
 import { Post } from '../../types';
 
 export default function MapScreen() {
   const params = useLocalSearchParams();
+  const router = useRouter();
   const { latitude: paramLat, longitude: paramLong, postId } = params;
-  
-  const { posts, getNearbyPosts } = usePostStore();
+  const insets = useSafeAreaInsets();  const { posts, getNearbyPosts } = usePostStore();
   const { currentLocation, getCurrentLocation, isLoading: isLocationLoading } = useLocationStore();
-  
+  const { user } = useAuthStore();
   const [nearbyPosts, setNearbyPosts] = useState<Post[]>([]);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selectedPostGroup, setSelectedPostGroup] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
@@ -64,20 +68,33 @@ export default function MapScreen() {
     })();
     setIsLoading(false);
   };
-  
-  const handleMarkerPress = (post: Post) => {
-    setSelectedPost(post ?? null);
+  const handleMarkerPress = (postOrGroup: Post | Post[]) => {
+    if (Array.isArray(postOrGroup)) {
+      // Nếu là array (cluster), hiển thị PostGroupView
+      setSelectedPostGroup(postOrGroup);
+      setSelectedPost(null);
+    } else {
+      // Nếu là single post, navigate tới post detail screen
+      router.push(`/post/${postOrGroup.id}`);
+    }
+  };
+  // Long press marker - navigation functionality removed
+  const handleMarkerLongPress = (post: Post) => {
+    // Navigation functionality has been removed
+    // This function is kept for compatibility but does nothing
+  };
+  const handleCloseGroup = () => {
+    setSelectedPostGroup([]);
   };
   
+  const handleSelectPostFromGroup = (post: Post) => {
+    // Navigate tới post detail screen thay vì chỉ set state
+    router.push(`/post/${post.id}`);
+    setSelectedPostGroup([]);
+  };
+
   const handleRefresh = () => {
     loadNearbyPosts();
-  };
-  
-  const handleGetDirections = () => {
-    if (!selectedPost) return;
-    
-    // In a real app, you would open the native maps app with directions
-    alert(`Getting directions to ${selectedPost.location.name}`);
   };
   
   if (isLocationLoading && !currentLocation) {
@@ -88,62 +105,60 @@ export default function MapScreen() {
       </View>
     );
   }
-
   return (
-    <SafeAreaView style={styles.container} edges={['right', 'left']}>
-      <StatusBar style="dark" />
+    <View style={[
+      styles.container,
+      { paddingTop: insets.top }
+    ]}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Map</Text>
+      </View>
       
+      {/* Refresh button */}
+      {!isLoading && (
+        <TouchableOpacity 
+          style={styles.refreshButton} 
+          onPress={loadNearbyPosts}
+        >
+          <RefreshCw size={20} color={colors.text} />
+        </TouchableOpacity>
+      )}
+      
+      {/* Map view */}
       <View style={styles.mapContainer}>
-        <MapView 
-          posts={nearbyPosts}
-          selectedPostId={selectedPost?.id}
-          onMarkerPress={handleMarkerPress}
-          showUserLocation
-        />
-        
-        <View style={styles.mapControls}>
-          <TouchableOpacity 
-            style={styles.mapControlButton}
-            onPress={handleRefresh}
-          >
-            <RefreshCw size={20} color={colors.text} />
-          </TouchableOpacity>
-        </View>
-        
-        {isLoading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator color={colors.primary} />
+        {nearbyPosts.length > 0 ? (
+          <MapView
+            posts={nearbyPosts}
+            selectedPostId={selectedPost?.id}
+            onMarkerPress={handleMarkerPress}
+            onMarkerLongPress={handleMarkerLongPress}
+          />
+        ) : (
+          <View style={styles.emptyContainer}>
+            {isLoading ? (
+              <ActivityIndicator size="large" color={colors.primary} />
+            ) : (
+              <>
+                <Text style={styles.emptyText}>No photos found</Text>
+                <Text style={styles.emptySubText}>
+                  Share some photos in this area to see them on the map
+                </Text>
+              </>
+            )}
           </View>
         )}
       </View>
-      
-      {selectedPost ? (
-        <View style={styles.postPreview}>
-          <PostCard post={selectedPost} showActions={false} />
-          <TouchableOpacity 
-            style={styles.directionsButton}
-            onPress={handleGetDirections}
-          >
-            <Navigation size={20} color="white" />
-            <Text style={styles.directionsButtonText}>Get Directions</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={styles.infoContainer}>
-          <Layers size={24} color={colors.textLight} />
-          <Text style={styles.infoText}>
-            {nearbyPosts.length > 0 
-              ? `${nearbyPosts.length} photos nearby` 
-              : 'No photos in this area'}
-          </Text>
-          <Text style={styles.infoSubtext}>
-            {nearbyPosts.length > 0 
-              ? 'Tap on a marker to view details' 
-              : 'Be the first to share a photo here!'}
-          </Text>
-        </View>
+      {/* Selected post group view */}
+      {selectedPostGroup.length > 0 && (
+        <PostGroupView
+          posts={selectedPostGroup}
+          onSelectPost={handleSelectPostFromGroup}
+          onClose={handleCloseGroup}
+        />
       )}
-    </SafeAreaView>
+      
+      <StatusBar style="dark" />
+    </View>
   );
 }
 
@@ -152,17 +167,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
   mapContainer: {
     flex: 1,
     position: 'relative',
   },
-  mapControls: {
+  refreshButton: {
     position: 'absolute',
     top: 16,
     right: 16,
-    zIndex: 10,
-  },
-  mapControlButton: {
     backgroundColor: 'white',
     width: 40,
     height: 40,
@@ -174,7 +198,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
-    marginBottom: 8,
+    zIndex: 10,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: colors.textLight,
+    textAlign: 'center',
+    marginTop: 4,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -193,39 +232,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  directionsButton: {
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  directionsButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  infoContainer: {
-    padding: 20,
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  infoText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 8,
-  },
-  infoSubtext: {
-    fontSize: 14,
-    color: colors.textLight,
-    marginTop: 4,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -237,4 +243,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textLight,
   },
+  closeButton: {
+  alignSelf: 'flex-end',
+  paddingVertical: 4,
+  paddingHorizontal: 12,
+  backgroundColor: '#eee',
+  borderRadius: 16,
+  marginBottom: 8,
+},
+closeButtonText: {
+  color: colors.text,
+  fontWeight: 'bold',
+  fontSize: 14,
+},
 });

@@ -22,8 +22,7 @@ export const getNearbyPosts = async (region: Region): Promise<Post[]> => {
     }
     
     console.log('No nearby posts found or invalid response format');
-    return [];
-  } catch (error) {
+    return [];  } catch (error) {
     console.error('Error fetching nearby posts:', error);
     return [];
   }
@@ -83,16 +82,19 @@ export const createPost = async (postData: any) => {
         ],
         placeName: postData.location.name,
       },
-    };
-
-    // 4. Gửi yêu cầu đến API backend
+    };    // 4. Gửi yêu cầu đến API backend
     const response = await api.posts.createPost(apiPostData);
 
     // 5. Xử lý phản hồi từ API
     if (response.data) {
+      const postId = response.data.id || response.data._id;
+      
+      // Backend đã tự động lưu thông tin ảnh vào uploads collection
+      console.log('Post created successfully, image info saved by backend');
+
       return {
         data: {
-          id: response.data.id || response.data._id,
+          id: postId,
           userId: postData.userId,
           imageUrl: imageUrl,
           caption: postData.caption,
@@ -171,3 +173,90 @@ export const getUserPosts = async (): Promise<Post[]> => {
     return [];
   }
 }
+
+/**
+ * Like một bài viết
+ * @param postId ID của bài viết cần like
+ * @returns Promise với thông tin bài viết đã được like
+ */
+export const likePost = async (postId: string): Promise<{ success: boolean; error?: string; data?: any }> => {
+  try {
+    const response = await api.posts.likePost(postId);
+    
+    if (response.error) {
+      return {
+        success: false,
+        error: response.error
+      };
+    }
+    
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error liking post:', error);
+    return {
+      success: false,
+      error: 'Unable to like post. Please try again later.'
+    };
+  }
+};
+
+/**
+ * Unlike một bài viết
+ * @param postId ID của bài viết cần unlike
+ * @returns Promise với thông tin bài viết đã được unlike
+ */
+export const unlikePost = async (postId: string): Promise<{ success: boolean; error?: string; data?: any }> => {
+  try {
+    const response = await api.posts.unlikePost(postId);
+    
+    if (response.error) {
+      return {
+        success: false,
+        error: response.error
+      };
+    }
+    
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error unliking post:', error);
+    return {
+      success: false,
+      error: 'Unable to unlike post. Please try again later.'
+    };
+  }
+};
+
+/**
+ * Xóa một bài viết
+ * @param postId ID của bài viết cần xóa
+ * @returns Promise với kết quả xóa bài viết
+ */
+export const deletePostById = async (postId: string): Promise<{ success: boolean; error?: string; message?: string }> => {
+  try {
+    const response = await api.posts.deletePost(postId);
+    
+    if (response.error) {
+      return {
+        success: false,
+        error: response.error
+      };
+    }
+    
+    return {
+      success: true,
+      message: 'Post deleted successfully'
+    };
+  } catch (error) {
+    console.error('Error deleting post:', error);
+    return {
+      success: false,
+      error: 'Unable to delete post. Please try again later.'
+    };
+  }
+};

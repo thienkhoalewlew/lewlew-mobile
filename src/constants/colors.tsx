@@ -12,8 +12,8 @@ export const colors = {
     success: '#2ecc71',
     error: '#e74c3c',
     warning: '#f39c12',
-    info: '#3498db',
-    overlay: 'rgba(0, 0, 0, 0.5)',
+    info: '#3498db',    overlay: 'rgba(0, 0, 0, 0.5)',
+    lightGray: '#f0f0f0',
     mapMarker: '#e74c3c',
     mapMarkerBorder: '#ffffff',
   };

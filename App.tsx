@@ -1,5 +1,14 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
+import { LogBox } from 'react-native';
+
+// Suppress specific Mapbox warnings
+LogBox.ignoreLogs([
+  'new NativeEventEmitter() was called with a non-null argument',
+  'EventEmitter.removeListener',
+  'Sending `onAnimationStart` with no listeners registered',
+  'Sending `onAnimationEnd` with no listeners registered',
+]);
 
 export default function App() {
   return (

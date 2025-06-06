@@ -15,16 +15,17 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Search, User as UserIcon } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuthStore } from '../../store/authStore';
 import { colors } from '../../constants/colors';
 import { getFriendsList, searchUsers, getFriendRequests, respondToFriendRequest } from '../../services/userService';
 import { User } from '../../types';
-import UserProfileModal from '../../components/UserProfileModal';
 
 export default function FriendsScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
@@ -39,10 +40,6 @@ export default function FriendsScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [hasMoreRequests, setHasMoreRequests] = useState(true);
   const [hasMoreSearchResults, setHasMoreSearchResults] = useState(true);
-  
-  // Biến trạng thái cho modal profile
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
   
   const loadFriends = async (pageNum = 1, shouldRefresh = false) => {
     if (isLoading || (!hasMore && !shouldRefresh)) return;
@@ -130,13 +127,7 @@ export default function FriendsScreen() {
   };
   
   const handleViewProfile = (userId: string) => {
-    setSelectedUserId(userId);
-    setIsProfileModalVisible(true);
-  };
-  
-  const closeProfileModal = () => {
-    setIsProfileModalVisible(false);
-    setSelectedUserId(null);
+    router.push(`/profile/${userId}`);
   };
 
   const loadFriendRequests = async (pageNum = 1, shouldRefresh = false) => {
@@ -277,12 +268,16 @@ export default function FriendsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['right', 'left']}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
       
       <View style={styles.header}>
         <Text style={styles.title}>Friends</Text>
-        <View style={styles.searchContainer}>
+      </View>
+      
+      {/* Search bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
           <Search size={20} color={colors.textLight} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
@@ -400,16 +395,7 @@ export default function FriendsScreen() {
           </View>
         </ScrollView>
       )}
-      
-      {/* Modal xem thông tin người dùng */}
-      {selectedUserId && (
-        <UserProfileModal
-          visible={isProfileModalVisible}
-          userId={selectedUserId}
-          onClose={closeProfileModal}
-        />
-      )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -419,21 +405,25 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 16,
-    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#f0f0f0',
   },
   title: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 16,
   },
   searchContainer: {
+    padding: 16,
+    paddingTop: 8,
+  },
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: colors.card,
     borderRadius: 8,
     paddingHorizontal: 12,
     borderWidth: 1,

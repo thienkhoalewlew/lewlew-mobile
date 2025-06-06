@@ -79,8 +79,19 @@ export const updateUserAvatar = async (localAvatarUri: string) => {
     // 2. Tải ảnh lên Cloudinary và nhận URL
     const cloudinaryUrl = await uploadUserAvatar(localAvatarUri, userId);
     
+    if (!cloudinaryUrl) {
+      return { error: 'Failed to upload avatar to Cloudinary' };
+    }
+    
     // 3. Cập nhật URL avatar trên backend
-    return await api.auth.updateAvatar(cloudinaryUrl || '');
+    // Backend sẽ tự động lưu thông tin ảnh vào uploads collection
+    const updateResult = await api.auth.updateAvatar(cloudinaryUrl);
+    
+    if (updateResult.error) {
+      return updateResult;
+    }
+    
+    return updateResult;
   } catch (error) {
     console.error('Error updating avatar:', error);
     return { error: 'Unable to update avatar' };
@@ -284,5 +295,72 @@ export const unfriendUser = async (friendId: string): Promise<{ success: boolean
   } catch (error) {
     console.error('Error unfriending user:', error);
     return { success: false, message: 'Unable to unfriend user. Please try again later.' };
+  }
+};
+
+/**
+ * Lấy danh sách ảnh đã upload của user hiện tại
+ * @returns Promise<any[]> Danh sách ảnh đã upload
+ */
+export const getUserUploadedImages = async (): Promise<any[]> => {
+  try {
+    const response = await api.uploads.getUploadedImages();
+    
+    if (response.data && Array.isArray(response.data)) {
+      return response.data;
+    }
+    
+    console.log('No uploaded images found or invalid response format');
+    return [];
+  } catch (error) {
+    console.error('Error fetching uploaded images:', error);
+    return [];
+  }
+};
+
+/**
+ * Xóa ảnh đã upload
+ * @param imageId ID của ảnh cần xóa
+ * @returns Promise<{ success: boolean, message: string }> Kết quả xóa ảnh
+ */
+export const deleteUploadedImage = async (imageId: string): Promise<{ success: boolean, message: string }> => {
+  try {
+    const response = await api.uploads.deleteImage(imageId);
+    
+    if (response.error) {
+      return {
+        success: false,
+        message: response.error
+      };
+    }
+    
+    return {
+      success: true,
+      message: 'Image deleted successfully'
+    };
+  } catch (error) {
+    console.error('Error deleting image:', error);
+    return {
+      success: false,
+      message: 'Unable to delete image. Please try again later.'
+    };
+  }
+};
+
+/**
+ * Lấy thông tin ảnh theo loại (avatar, post, comment)
+ * @param type Loại ảnh cần lọc
+ * @returns Promise<any[]> Danh sách ảnh theo loại
+ */
+export const getUserImagesByType = async (type: 'user_avatar' | 'post_image' | 'comment_image'): Promise<any[]> => {
+  try {
+    const allImages = await getUserUploadedImages();
+    
+    return allImages.filter(image => 
+      image.metadata && image.metadata.type === type
+    );
+  } catch (error) {
+    console.error('Error fetching images by type:', error);
+    return [];
   }
 };

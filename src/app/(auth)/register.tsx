@@ -18,7 +18,7 @@ import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
 import { colors } from '../../constants/colors';
 import { useAuthStore } from '../../store/authStore';
-import { checkBackendConnection, getErrorMessage } from '../../services/apiUtils';
+import { checkBackendConnection, getErrorMessage } from '../../utils/apiUtils';
 
 export default function RegisterScreen() {
   const router = useRouter();
