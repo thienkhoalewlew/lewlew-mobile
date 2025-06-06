@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ca } from 'date-fns/locale';
 
-export const API_URL = 'https://lewlew.io.vn/api';
+export const API_URL = 'http://192.168.1.8:3000/api';
 
 // Headers mặc định cho các request
 const defaultHeaders = {

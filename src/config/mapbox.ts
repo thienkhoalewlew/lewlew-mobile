@@ -1,6 +1,8 @@
 import Mapbox from '@rnmapbox/maps';
+import { MAPBOX_ACCESS_TOKEN } from './env';
 
-// Cấu hình Mapbox với access token
-Mapbox.setAccessToken('pk.eyJ1IjoidGhpZW5raG9hbGV3bGV3IiwiYSI6ImNtYWllamNmcTA1cDcyanM3eHhkNjJ4bmwifQ.9EoMi6rE_TxFRZOymbHPPQ');
+Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
 
 export default Mapbox;
+
+export { MAPBOX_ACCESS_TOKEN };
