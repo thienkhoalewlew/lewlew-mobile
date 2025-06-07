@@ -18,6 +18,7 @@ import { PostGroupView } from '../../components/PostGroupView';
 import { usePostStore } from '../../store/postStore';
 import { useLocationStore } from '../../store/locationStore';
 import { useAuthStore } from '../../store/authStore';
+import { useTranslation } from '../../i18n';
 import { colors } from '../../constants/colors';
 import { Post } from '../../types';
 
@@ -25,13 +26,15 @@ export default function MapScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
   const { latitude: paramLat, longitude: paramLong, postId } = params;
-  const insets = useSafeAreaInsets();  const { posts, getNearbyPosts } = usePostStore();
+  const insets = useSafeAreaInsets();
+  const { t } = useTranslation();const { posts, getNearbyPosts } = usePostStore();
   const { currentLocation, getCurrentLocation, isLoading: isLocationLoading } = useLocationStore();
   const { user } = useAuthStore();
   const [nearbyPosts, setNearbyPosts] = useState<Post[]>([]);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [selectedPostGroup, setSelectedPostGroup] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [shouldDrawRoute, setShouldDrawRoute] = useState(false);
   
   useEffect(() => {
     loadNearbyPosts();
@@ -41,7 +44,8 @@ export default function MapScreen() {
     if (postId && typeof postId === 'string') {
       const post = posts.find((p: any) => p.id === postId);
       if (post) {
-        setSelectedPost(post ?? null);
+        setSelectedPost(post);
+        setShouldDrawRoute(true);
       }
     }
   }, [postId, posts]);
@@ -55,8 +59,7 @@ export default function MapScreen() {
       return;
     }
     
-    (async () => {
-      // Ensure we pass a Region object with latitudeDelta and longitudeDelta
+    try {
       const region = {
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
@@ -65,16 +68,19 @@ export default function MapScreen() {
       };
       const postsNearby = await getNearbyPosts(region);
       setNearbyPosts(Array.isArray(postsNearby) ? postsNearby : []);
-    })();
-    setIsLoading(false);
+    } catch (error) {
+      console.error('Error loading nearby posts:', error);
+      setNearbyPosts([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
   const handleMarkerPress = (postOrGroup: Post | Post[]) => {
     if (Array.isArray(postOrGroup)) {
-      // Nếu là array (cluster), hiển thị PostGroupView
       setSelectedPostGroup(postOrGroup);
       setSelectedPost(null);
+      setShouldDrawRoute(false);
     } else {
-      // Nếu là single post, navigate tới post detail screen
       router.push(`/post/${postOrGroup.id}`);
     }
   };
@@ -88,7 +94,6 @@ export default function MapScreen() {
   };
   
   const handleSelectPostFromGroup = (post: Post) => {
-    // Navigate tới post detail screen thay vì chỉ set state
     router.push(`/post/${post.id}`);
     setSelectedPostGroup([]);
   };
@@ -96,12 +101,11 @@ export default function MapScreen() {
   const handleRefresh = () => {
     loadNearbyPosts();
   };
-  
-  if (isLocationLoading && !currentLocation) {
+    if (isLocationLoading && !currentLocation) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Getting your location...</Text>
+        <Text style={styles.loadingText}>{t('map.gettingLocation')}</Text>
       </View>
     );
   }
@@ -111,7 +115,7 @@ export default function MapScreen() {
       { paddingTop: insets.top }
     ]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Map</Text>
+        <Text style={styles.title}>{t('map.map')}</Text>
       </View>
       
       {/* Refresh button */}
@@ -131,7 +135,11 @@ export default function MapScreen() {
             posts={nearbyPosts}
             selectedPostId={selectedPost?.id}
             onMarkerPress={handleMarkerPress}
-            onMarkerLongPress={handleMarkerLongPress}
+            showUserLocation={true}
+            user={user || undefined}
+            filterByRadius={true}
+            shouldDrawRoute={shouldDrawRoute}
+            onRouteDrawn={() => setShouldDrawRoute(false)}
           />
         ) : (
           <View style={styles.emptyContainer}>
@@ -139,9 +147,9 @@ export default function MapScreen() {
               <ActivityIndicator size="large" color={colors.primary} />
             ) : (
               <>
-                <Text style={styles.emptyText}>No photos found</Text>
+                <Text style={styles.emptyText}>{t('map.noPhotosFound')}</Text>
                 <Text style={styles.emptySubText}>
-                  Share some photos in this area to see them on the map
+                  {t('map.sharePhotosPrompt')}
                 </Text>
               </>
             )}

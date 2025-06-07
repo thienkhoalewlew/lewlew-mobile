@@ -24,14 +24,24 @@ interface UserState {
   
   // Hành động
   getCurrentUserProfile: () => Promise<User | null>;
-  updateUserAvatar: (localAvatarUri: string) => Promise<void>;
+  updateUserAvatar: (imageUri: string) => Promise<void>;
   getFriendsList: (page?: number, limit?: number) => Promise<void>;
   getFriendRequests: (page?: number, limit?: number) => Promise<void>;
   searchUsers: (query: string, page?: number, limit?: number) => Promise<void>;
   sendFriendRequest: (userId: string) => Promise<{ success: boolean, message: string }>;
   respondToFriendRequest: (requestId: string, action: 'accept' | 'reject') => Promise<{ success: boolean, message: string }>;
   unfriendUser: (friendId: string) => Promise<{ success: boolean, message: string }>;
-  clearError: () => void;
+  clearError: () => void;  updateUserSettings: (settings: {
+    notificationRadius: number;
+    pushNotifications: boolean;
+    emailNotifications: boolean;
+    language?: 'en' | 'vi';
+  }) => Promise<void>;
+  updateUserEmail: (email: string) => Promise<void>;
+  updateUserPassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  updateUsername: (username: string) => Promise<void>;
+  updateFullname: (fullname: string) => Promise<void>;
+  updateBio: (bio: string) => Promise<void>;
 }
 
 export const useUserStore = create<UserState>()(
@@ -49,40 +59,70 @@ export const useUserStore = create<UserState>()(
       
       // Lấy thông tin người dùng hiện tại
       getCurrentUserProfile: async () => {
-        set({ isLoading: true, error: null });
         try {
+          set({ isLoading: true, error: null });
+          console.log('Getting current user profile...');
+          
+          // First get saved settings from AsyncStorage
+          const savedSettings = await AsyncStorage.getItem('user-settings');
+          console.log('Saved settings from AsyncStorage:', savedSettings);
+          
+          // Get user from backend
           const user = await userService.getCurrentUserProfile();
-          set({ currentUser: user, isLoading: false });
-          return user;
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Không thể lấy thông tin người dùng';
-          set({ 
-            error: errorMessage, 
-            isLoading: false 
-          });
+          console.log('User from backend:', user);
+            if (user) {
+            let finalSettings = user.settings || {
+              notificationRadius: 5,
+              pushNotifications: true,
+              emailNotifications: true,
+              language: 'vi' as 'en' | 'vi'
+            };
+
+            // If we have saved settings, merge them with priority
+            if (savedSettings) {
+              const parsedSettings = JSON.parse(savedSettings);
+              finalSettings = {
+                ...finalSettings,  // Backend settings as base
+                ...parsedSettings  // Local settings take priority
+              };
+              console.log('Merged settings:', finalSettings);
+            }
+
+            // Create final user object with merged settings
+            const finalUser = {
+              ...user,
+              settings: finalSettings
+            };
+
+            console.log('Setting final user with settings:', finalUser);
+            set({ currentUser: finalUser });
+            return finalUser;
+          }
           return null;
+        } catch (error) {
+          console.error('Error in getCurrentUserProfile:', error);
+          set({ error: 'Failed to get user profile' });
+          return null;
+        } finally {
+          set({ isLoading: false });
         }
       },
       
       // Cập nhật avatar người dùng
-      updateUserAvatar: async (localAvatarUri: string) => {
-        set({ isLoading: true, error: null });
+      updateUserAvatar: async (imageUri: string) => {
         try {
-          const result = await userService.updateUserAvatar(localAvatarUri);
-          if (result.error) {
-            set({ error: result.error, isLoading: false });
-            return;
+          set({ isLoading: true, error: null });
+          const result = await userService.updateUserAvatar(imageUri);
+          if ('error' in result) {
+            throw new Error(result.error);
           }
-          
-          // Làm mới thông tin người dùng
-          const user = await userService.getCurrentUserProfile();
-          set({ currentUser: user, isLoading: false });
+          const updatedUser = userService.mapBackendUserToAppUser(result.data);
+          set({ currentUser: updatedUser });
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Không thể cập nhật ảnh đại diện';
-          set({ 
-            error: errorMessage, 
-            isLoading: false 
-          });
+          set({ error: error instanceof Error ? error.message : 'Failed to update avatar' });
+          throw error;
+        } finally {
+          set({ isLoading: false });
         }
       },
       
@@ -94,10 +134,7 @@ export const useUserStore = create<UserState>()(
           set({ friends, friendsLoading: false });
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Không thể lấy danh sách bạn bè';
-          set({ 
-            error: errorMessage, 
-            friendsLoading: false 
-          });
+          set({ error: errorMessage, friendsLoading: false });
         }
       },
       
@@ -109,10 +146,7 @@ export const useUserStore = create<UserState>()(
           set({ friendRequests: requests, friendRequestsLoading: false });
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Không thể lấy danh sách lời mời kết bạn';
-          set({ 
-            error: errorMessage, 
-            friendRequestsLoading: false 
-          });
+          set({ error: errorMessage, friendRequestsLoading: false });
         }
       },
       
@@ -129,10 +163,7 @@ export const useUserStore = create<UserState>()(
           set({ searchResults: users, searchLoading: false });
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Không thể tìm kiếm người dùng';
-          set({ 
-            error: errorMessage, 
-            searchLoading: false 
-          });
+          set({ error: errorMessage, searchLoading: false });
         }
       },
       
@@ -142,18 +173,10 @@ export const useUserStore = create<UserState>()(
         try {
           const result = await userService.sendFriendRequest(userId);
           set({ isLoading: false });
-          
-          if (!result.success) {
-            set({ error: result.message });
-          }
-          
           return result;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Không thể gửi lời mời kết bạn';
-          set({ 
-            error: errorMessage, 
-            isLoading: false 
-          });
+          set({ error: errorMessage, isLoading: false });
           return {
             success: false,
             message: errorMessage
@@ -169,24 +192,16 @@ export const useUserStore = create<UserState>()(
           set({ isLoading: false });
           
           if (result.success) {
-            // Cập nhật lại danh sách lời mời kết bạn
             get().getFriendRequests();
-            
-            // Nếu chấp nhận, cập nhật lại danh sách bạn bè
             if (action === 'accept') {
               get().getFriendsList();
             }
-          } else {
-            set({ error: result.message });
           }
           
           return result;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Không thể phản hồi lời mời kết bạn';
-          set({ 
-            error: errorMessage, 
-            isLoading: false 
-          });
+          set({ error: errorMessage, isLoading: false });
           return {
             success: false,
             message: errorMessage
@@ -202,19 +217,13 @@ export const useUserStore = create<UserState>()(
           set({ isLoading: false });
           
           if (result.success) {
-            // Cập nhật lại danh sách bạn bè
             get().getFriendsList();
-          } else {
-            set({ error: result.message });
           }
           
           return result;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Không thể hủy kết bạn';
-          set({ 
-            error: errorMessage, 
-            isLoading: false 
-          });
+          set({ error: errorMessage, isLoading: false });
           return {
             success: false,
             message: errorMessage
@@ -224,6 +233,129 @@ export const useUserStore = create<UserState>()(
       
       // Xóa thông báo lỗi
       clearError: () => set({ error: null }),
+      
+      // Cập nhật cài đặt người dùng
+      updateUserSettings: async (settings) => {
+        try {
+          set({ isLoading: true, error: null });
+          console.log('Updating settings in store:', settings);
+          
+          // First save to AsyncStorage to ensure we have a local copy
+          await AsyncStorage.setItem('user-settings', JSON.stringify(settings));
+          
+          // Then update in backend
+          const updatedUser = await userService.updateUserSettings(settings);
+          
+          if (updatedUser) {
+            // Merge the settings properly
+            const mergedSettings = {
+              ...(get().currentUser?.settings || {}),
+              ...settings
+            };
+            
+            console.log('Merged settings:', mergedSettings);
+            
+            // Update the store with new user data and merged settings
+            set({ 
+              currentUser: {
+                ...get().currentUser,
+                ...updatedUser,
+                settings: mergedSettings
+              } as User 
+            });
+            
+            // Verify the update
+            const currentState = get().currentUser;
+            console.log('Store state after update:', {
+              settings: currentState?.settings,
+              stored: await AsyncStorage.getItem('user-settings')
+            });
+          }
+        } catch (error) {
+          console.error('Error in updateUserSettings:', error);
+          set({ error: error instanceof Error ? error.message : 'Failed to update settings' });
+          throw error;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+      
+      // Cập nhật email người dùng
+      updateUserEmail: async (email) => {
+        try {
+          set({ isLoading: true, error: null });
+          const updatedUser = await userService.updateUserEmail(email);
+          if (updatedUser) {
+            set({ currentUser: updatedUser });
+          }
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Failed to update email' });
+          throw error;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+      
+      // Cập nhật mật khẩu người dùng
+      updateUserPassword: async (currentPassword, newPassword) => {
+        try {
+          set({ isLoading: true, error: null });
+          await userService.updateUserPassword(currentPassword, newPassword);
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Failed to update password' });
+          throw error;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+      
+      // Cập nhật tên người dùng
+      updateUsername: async (username) => {
+        try {
+          set({ isLoading: true, error: null });
+          const updatedUser = await userService.updateUsername(username);
+          if (updatedUser) {
+            set({ currentUser: updatedUser });
+          }
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Failed to update username' });
+          throw error;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      // Cập nhật họ tên đầy đủ
+      updateFullname: async (fullname) => {
+        try {
+          set({ isLoading: true, error: null });
+          const updatedUser = await userService.updateFullname(fullname);
+          if (updatedUser) {
+            set({ currentUser: updatedUser });
+          }
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Failed to update full name' });
+          throw error;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      // Cập nhật bio
+      updateBio: async (bio) => {
+        try {
+          set({ isLoading: true, error: null });
+          const updatedUser = await userService.updateBio(bio);
+          if (updatedUser) {
+            set({ currentUser: updatedUser });
+          }
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Failed to update bio' });
+          throw error;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
     }),
     {
       name: 'user-storage',

@@ -13,13 +13,39 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      isInitialized: false,
 
-      register: async (username: string, email: string, password: string) => {
+      initialize: async () => {
+        set({ isLoading: true });
+        try {
+          const token = await AsyncStorage.getItem('auth-storage');
+          if (token) {
+            const parsedData = JSON.parse(token);
+            if (parsedData.state?.token) {
+              // Token exists, try to fetch user profile
+              const profileRes = await api.auth.getProfile();
+              if (profileRes.data) {
+                set({ 
+                  token: parsedData.state.token,
+                  user: mapBackendUserToAppUser(profileRes.data),
+                  isAuthenticated: true,
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Auth initialization error:', error);
+        } finally {
+          set({ isLoading: false, isInitialized: true });
+        }
+      },
+
+      register: async (fullName: string, email: string, password: string) => {
         set({ isLoading: true, error: null });
         
         try {
-          // Call the register API - backend uses fullName instead of username
-          const response = await api.auth.register(username, email, password);
+          // Call the register API with fullName
+          const response = await api.auth.register(fullName, email, password);
           
           if (response.error) {
             throw new Error(response.error);
@@ -77,7 +103,11 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
-        set({ user: null, isAuthenticated: false });
+        set({ 
+          user: null, 
+          isAuthenticated: false,
+          token: null 
+        });
       },
 
       updateProfile: (userData: Partial<User>) => {
@@ -115,7 +145,7 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ token: state.token}),
+      partialize: (state) => ({ token: state.token }),
     }
   )
 );

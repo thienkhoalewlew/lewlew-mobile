@@ -13,6 +13,7 @@ import { useCommentStore } from '../../store/commentStore';
 import { useAuthStore } from '../../store/authStore';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useTranslation } from '../../i18n';
 
 interface CreateCommentProps {
   postId: string;
@@ -26,13 +27,13 @@ export const CreateComment: React.FC<CreateCommentProps> = ({ postId, onCommentC
   
   const { createComment, loading } = useCommentStore();
   const { user } = useAuthStore();
-
+  const { t } = useTranslation();
   const handleImagePicker = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        Alert.alert(t('posts.permissionRequired'), t('posts.permissionCameraRoll'));
         return;
       }
 
@@ -47,12 +48,11 @@ export const CreateComment: React.FC<CreateCommentProps> = ({ postId, onCommentC
         setSelectedImage(result.assets[0].uri);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to pick image');
+      Alert.alert(t('common.error'), t('posts.imagePickError'));
     }
-  };
-  const handleSubmit = async () => {
+  };  const handleSubmit = async () => {
     if (!text.trim() && !selectedImage) {
-      Alert.alert('Error', 'Please enter a comment or select an image');
+      Alert.alert(t('common.error'), t('posts.commentCreateError'));
       return;
     }
 
@@ -69,13 +69,13 @@ export const CreateComment: React.FC<CreateCommentProps> = ({ postId, onCommentC
         setText('');
         setSelectedImage(null);
         onCommentCreated?.();
-        Alert.alert('Success', 'Comment posted successfully!');
+        Alert.alert(t('common.success'), t('posts.commentCreateSuccess'));
       } else {
-        Alert.alert('Error', 'Failed to create comment');
+        Alert.alert(t('common.error'), t('posts.commentCreateFailed'));
       }
     } catch (error) {
       console.error('Create comment error:', error);
-      Alert.alert('Error', 'An unexpected error occurred');
+      Alert.alert(t('common.error'), t('posts.commentCreateUnexpected'));
     } finally {
       setIsSubmitting(false);
     }
@@ -112,7 +112,7 @@ export const CreateComment: React.FC<CreateCommentProps> = ({ postId, onCommentC
         <View style={styles.inputRow}>
           <TextInput
             style={styles.textInput}
-            placeholder="Write a comment..."
+            placeholder={t('posts.writeComment')}
             value={text}
             onChangeText={setText}
             multiline

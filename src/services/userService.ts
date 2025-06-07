@@ -9,19 +9,23 @@ const userCache: Record<string, User> = {};
  * Ánh xạ dữ liệu người dùng từ backend sang định dạng của ứng dụng
  */
 export const mapBackendUserToAppUser = (backendUser: any): User => {
-  
   return {
     id: backendUser._id || backendUser.id,
-    username: backendUser.username || '', 
-    fullname: backendUser.fullName || backendUser.fullname || backendUser.username || 'Unknown User',
+    username: backendUser.username || backendUser.email?.split('@')[0] || '', 
+    fullname: backendUser.fullName || backendUser.fullname || 'Unknown User',
     email: backendUser.email || '',
-    avatar: backendUser.avatar || backendUser.avatar || 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    avatar: backendUser.avatar || 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
     bio: backendUser.bio || '',
     friendCount: backendUser.friendCount || (Array.isArray(backendUser.friends) ? backendUser.friends.length : 0),
     status: backendUser.friendStatus || backendUser.status || 'none',
     createdAt: backendUser.createdAt ? new Date(backendUser.createdAt) : new Date(),
     token: backendUser.token,
     requestId: backendUser.requestId,
+    settings: backendUser.settings || {
+      notificationRadius: 5,
+      pushNotifications: true,
+      emailNotifications: true
+    }
   };
 };
 
@@ -253,6 +257,41 @@ export const getFriendRequests = async (page: number = 1, limit: number = 10): P
 };
 
 /**
+ * Lấy danh sách lời mời kết bạn đã gửi của người dùng hiện tại
+ * @param page Số trang (bắt đầu từ 1)
+ * @param limit Số lượng lời mời kết bạn trên mỗi trang
+ * @returns Promise<User[]> Danh sách người dùng đã nhận lời mời kết bạn từ người dùng hiện tại
+ */
+export const getSentFriendRequests = async (page: number = 1, limit: number = 10): Promise<User[]> => {
+  try {
+    const response = await api.friendrelations.getSentRequests(page, limit);
+    
+    if (response.data && response.data.requests) {
+      const requestUsers = response.data.requests.map((request: any) => {
+        const userData = request.to || request.user2;
+        const user = mapBackendUserToAppUser(userData);
+        
+        return {
+          ...user,
+          requestId: request._id || request.id,
+        };
+      });
+      
+      requestUsers.forEach((user: User) => {
+        userCache[user.id] = user;
+      });
+      
+      return requestUsers;
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error getting sent friend requests:', error);
+    return [];
+  }
+};
+
+/**
  * Phản hồi lời mời kết bạn (chấp nhận hoặc từ chối)
  * @param requestId ID của lời mời kết bạn
  * @param action 'accept' để chấp nhận hoặc 'reject' để từ chối
@@ -362,5 +401,103 @@ export const getUserImagesByType = async (type: 'user_avatar' | 'post_image' | '
   } catch (error) {
     console.error('Error fetching images by type:', error);
     return [];
+  }
+};
+
+export const updateUserSettings = async (settings: {
+  notificationRadius: number;
+  pushNotifications: boolean;
+  emailNotifications: boolean;
+  language?: 'en' | 'vi';
+}) => {
+  try {
+    console.log('Updating settings with:', settings);
+    const response = await api.auth.updateSettings(settings);
+    
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    
+    if (!response.data) {
+      throw new Error('No data received from server');
+    }
+    
+    console.log('Settings update response:', response.data);
+    return mapBackendUserToAppUser(response.data);
+  } catch (error) {
+    console.error('Error updating settings:', error);
+    throw error;
+  }
+};
+
+export const updateUserEmail = async (email: string) => {
+  try {
+    const response = await api.auth.updateEmail({ email });
+    if (response.data) {
+      return mapBackendUserToAppUser(response.data);
+    }
+    throw new Error('Failed to update email');
+  } catch (error) {
+    console.error('Error updating email:', error);
+    throw error;
+  }
+};
+
+export const updateUserPassword = async (currentPassword: string, newPassword: string) => {
+  try {
+    const response = await api.auth.updatePassword({
+      currentPassword,
+      newPassword,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating password:', error);
+    throw error;
+  }
+};
+
+export const updateUsername = async (username: string) => {
+  try {
+    const response = await api.auth.updateUsername({ username });
+    if (response.data) {
+      return mapBackendUserToAppUser(response.data);
+    }
+    throw new Error('Failed to update username');
+  } catch (error) {
+    console.error('Error updating username:', error);
+    throw error;
+  }
+};
+
+export const updateFullname = async (fullname: string) => {
+  try {
+    const response = await api.auth.updateFullname({ fullname });
+    if (response.data) {
+      return mapBackendUserToAppUser(response.data);
+    }
+    throw new Error('Failed to update full name');
+  } catch (error) {
+    console.error('Error updating full name:', error);
+    throw error;
+  }
+};
+
+export const updateBio = async (bio: string) => {
+  try {
+    const response = await api.auth.updateBio({ bio });
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    
+    // Sau khi cập nhật bio thành công, lấy thông tin user mới nhất
+    const userResponse = await api.auth.getCurrentUser();
+    if (userResponse.error) {
+      throw new Error(userResponse.error);
+    }
+    
+    return userResponse.data ? mapBackendUserToAppUser(userResponse.data) : null;
+  } catch (error) {
+    console.error('Error updating bio:', error);
+    throw error;
   }
 };

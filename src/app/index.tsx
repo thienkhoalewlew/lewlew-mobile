@@ -5,13 +5,17 @@ import { useAuthStore } from '../store/authStore';
 import { colors } from '../constants/colors';
 
 export default function Index() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
   
-  // Use a simple conditional render instead of useEffect for initial navigation
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <ActivityIndicator size="large" color={colors.primary} />
-      {isAuthenticated ? <Redirect href="/(tabs)" /> : <Redirect href="/login" />}
-    </View>
-  );
+  // Show loading screen while determining auth state
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  // Redirect based on auth state
+  return isAuthenticated ? <Redirect href="/(tabs)" /> : <Redirect href="/login" />;
 }

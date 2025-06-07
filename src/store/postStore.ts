@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Post, PostState, Region } from '../types';
-import { getNearbyPosts, getFriendPosts, createPost as apiCreatePost, getUserPosts, likePost as apiLikePost, unlikePost as apiUnlikePost, deletePostById as apiDeletePost } from '../services/postService';
+import { getNearbyPosts, getFriendPosts, createPost as apiCreatePost, getUserPosts, likePost as apiLikePost, unlikePost as apiUnlikePost, deletePostById as apiDeletePost, getPostById } from '../services/postService';
 
 export const usePostStore = create<PostState>()(
   persist(
@@ -186,12 +186,12 @@ export const usePostStore = create<PostState>()(
         }
       },
 
-      getUserPosts: async () => {
+      getUserPosts: async (includeExpired: boolean = true) => {
         const state = get();
         set({ isLoading: true });
         
         try {
-          const userPosts = await getUserPosts();
+          const userPosts = await getUserPosts(includeExpired);
           
           // Merge posts với state hiện tại, tránh trùng lặp
           const existingPostIds = new Set(state.posts.map(p => p.id));
@@ -207,6 +207,39 @@ export const usePostStore = create<PostState>()(
           console.error('Error fetching user posts:', error);
           set({ isLoading: false });
           return [];
+        }
+      },
+
+      getPostById: async (postId: string) => {
+        set({ isLoading: true, error: null });
+        
+        try {
+          // Kiểm tra ID hợp lệ
+          if (!postId || postId === '[object Object]' || (typeof postId === 'string' && postId.includes('[object Object]'))) {
+            console.error('PostStore: Invalid post ID format:', postId);
+            set({ error: 'Invalid post ID format', isLoading: false });
+            return null;
+          }
+          
+          const post = await getPostById(postId);
+          if (post) {
+            set({ posts: [post], isLoading: false });
+            return post;
+          } else {
+            set({ error: 'Post not found', isLoading: false });
+            return null;
+          }
+        } catch (error) {
+          console.error('PostStore: Error fetching post:', error);
+          
+          // Kiểm tra nếu là lỗi bài viết hết hạn
+          if (error instanceof Error && error.message.includes('expired')) {
+            set({ error: 'Post has expired (older than 24 hours)', isLoading: false });
+          } else {
+            set({ error: 'Failed to fetch post', isLoading: false });
+          }
+          
+          return null;
         }
       }
     }),

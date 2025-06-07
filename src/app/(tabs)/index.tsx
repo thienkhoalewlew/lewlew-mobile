@@ -14,18 +14,48 @@ import { StatusBar } from 'expo-status-bar';
 import { PostCard } from '../../components/PostCard';
 import { usePostStore } from '../../store/postStore';
 import { useLocationStore } from '../../store/locationStore';
-import { useAuthStore } from '../../store/authStore';
+import { useUserStore } from '../../store/userStore';
 import { colors } from '../../constants/colors';
 import { Post } from '../../types';
+import { useTranslation } from '../../i18n';
 
 export default function HomeScreen() {
   const { getNearbyPosts, getFriendPosts } = usePostStore();
   const { currentLocation, getCurrentLocation, isLoading: isLocationLoading } = useLocationStore();
-  const { user } = useAuthStore();
+  const { currentUser, getCurrentUserProfile } = useUserStore();
+  const { t } = useTranslation();
   
   const [feedPosts, setFeedPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [feedType, setFeedType] = useState<'nearby' | 'friends'>('nearby');
+  
+  // Load user profile when component mounts to get latest settings
+  useEffect(() => {
+    getCurrentUserProfile();
+  }, []);
+  
+  // Get notification radius from user settings for debug
+  const notificationRadius = currentUser?.settings?.notificationRadius;
+  useEffect(() => {
+    console.log('Current user settings in Home:', currentUser?.settings);
+    console.log('Using notification radius:', notificationRadius);
+  }, [currentUser, notificationRadius]);
+  
+  // Convert km to lat/long degrees (approximate)
+  const kmToLatLongDelta = (km: number) => {
+    // 1 degree latitude ≈ 111.32 km
+    // Use smaller factor to ensure we don't load too wide area
+    const latDelta = (km * 2) / 111.32;
+    
+    // 1 degree longitude depends on latitude
+    // Use more accurate formula: 111.32 * cos(latitude)
+    const longDelta = (km * 2) / (111.32 * Math.cos((currentLocation?.latitude || 0) * Math.PI / 180));
+    
+    return {
+      latDelta: Math.min(latDelta, 0.5), // Limit maximum delta
+      longDelta: Math.min(longDelta, 0.5)
+    };
+  };
   
   // Animation states
   const headerTranslateY = useRef(new Animated.Value(0)).current;
@@ -34,7 +64,7 @@ export default function HomeScreen() {
   
   useEffect(() => {
     loadFeed();
-  }, [currentLocation, user, feedType]);
+  }, [currentLocation, currentUser, feedType]);
   
   const loadFeed = async () => {
     if (feedType === 'nearby') {
@@ -45,24 +75,35 @@ export default function HomeScreen() {
       
       try {
         setRefreshing(true);
-        // Ensure we pass a Region object with latitudeDelta and longitudeDelta
+        
+        // Ensure we have the latest user settings
+        const radius = notificationRadius || 5;
+        console.log('Loading feed with radius:', radius, 'km');
+        
+        // Use radius from settings to calculate region
+        const { latDelta, longDelta } = kmToLatLongDelta(radius);
+        
+        // Ensure region is not too large
         const region = {
           latitude: currentLocation.latitude,
           longitude: currentLocation.longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
+          latitudeDelta: latDelta,
+          longitudeDelta: longDelta,
         };
+        
+        console.log('Loading posts with region:', region);
+        
         const nearbyPosts = await getNearbyPosts(region);
         
-        // Sắp xếp bài viết theo thời gian tạo (mới nhất lên đầu)
+        // Sort posts by creation time (newest first)
         if (Array.isArray(nearbyPosts) && nearbyPosts.length > 0) {
           const sortedPosts = nearbyPosts.sort((a, b) => 
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
           setFeedPosts(sortedPosts);
-          console.log(`Loaded ${sortedPosts.length} nearby posts`);
+          console.log(`Loaded ${sortedPosts.length} nearby posts within ${radius}km`);
         } else {
-          console.log('No nearby posts found');
+          console.log(`No nearby posts found within ${radius}km`);
           setFeedPosts([]);
         }
       } catch (error) {
@@ -72,11 +113,11 @@ export default function HomeScreen() {
         setRefreshing(false);
       }
     } else {
-      if (!user) return;
+      if (!currentUser) return;
       
       try {
         setRefreshing(true);
-        // Gọi API để lấy bài viết của bạn bè
+        // Call API to get friend posts
         const friendPosts = await getFriendPosts();
         
         if (Array.isArray(friendPosts) && friendPosts.length > 0) {
@@ -112,17 +153,17 @@ export default function HomeScreen() {
         const currentScrollY = event.nativeEvent.contentOffset.y;
         const diff = currentScrollY - lastScrollY.current;
         
-        // Chỉ ẩn/hiện khi scroll đủ xa (tránh hiệu ứng nhấp nháy)
+        // Only hide/show when scrolled enough distance (avoid flickering effect)
         if (Math.abs(diff) > 10) {
           if (diff > 0 && currentScrollY > 80) {
-            // Scroll xuống - ẩn header
+            // Scroll down - hide header
             Animated.timing(headerTranslateY, {
               toValue: -100,
               duration: 250,
               useNativeDriver: true,
             }).start();
           } else if (diff < 0 || currentScrollY <= 0) {
-            // Scroll lên hoặc về đầu trang - hiện header
+            // Scroll up or back to top - show header
             Animated.timing(headerTranslateY, {
               toValue: 0,
               duration: 250,
@@ -143,7 +184,7 @@ export default function HomeScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Getting your location...</Text>
+        <Text style={styles.loadingText}>{t('home.gettingLocation')}</Text>
       </View>
     );
   }
@@ -161,7 +202,7 @@ export default function HomeScreen() {
           }
         ]}
       >
-        <Text style={styles.headerTitle}>PhotoMap</Text>
+        <Text style={styles.headerTitle}>{t('home.photoMap')}</Text>
         <View style={styles.feedToggle}>
           <Text 
             style={[
@@ -170,7 +211,7 @@ export default function HomeScreen() {
             ]}
             onPress={() => setFeedType('nearby')}
           >
-            Nearby
+            {t('home.nearby')}
           </Text>
           <Text 
             style={[
@@ -179,7 +220,7 @@ export default function HomeScreen() {
             ]}
             onPress={() => setFeedType('friends')}
           >
-            Friends
+            {t('home.friends')}
           </Text>
         </View>
       </Animated.View>
@@ -187,7 +228,7 @@ export default function HomeScreen() {
       <FlatList
         data={feedPosts}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <PostCard post={item} />}
+        renderItem={({ item }) => <PostCard post={item} feedType={feedType} />}
         contentContainerStyle={styles.listContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -203,13 +244,13 @@ export default function HomeScreen() {
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyTitle}>
               {feedType === 'nearby' 
-                ? 'No posts nearby' 
-                : 'No posts from friends'}
+                ? t('home.noPostsNearby')
+                : t('home.noPostsFromFriends')}
             </Text>
             <Text style={styles.emptySubtitle}>
               {feedType === 'nearby'
-                ? 'Be the first to share a photo in this area!'
-                : 'Add friends to see their posts here'}
+                ? t('home.beFirstToShare')
+                : t('home.addFriendsToSee')}
             </Text>
           </View>
         }
@@ -230,7 +271,7 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    paddingTop: 20, // Tụt xuống một chút
+    paddingTop: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     backgroundColor: colors.card,
@@ -267,7 +308,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingTop: 100, // Thêm space cho header
+    paddingTop: 100,
   },
   loadingContainer: {
     flex: 1,

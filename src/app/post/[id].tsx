@@ -26,8 +26,12 @@ import { colors } from '../../constants/colors';
 import { User, Post as PostType } from '../../types';
 import { ensureStringId } from '@/src/services/postService';
 import { formatTimeAgo } from '../../utils/timeUtils';
+import { formatDistanceToNow } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { isPostExpired } from '../../utils/timeUtils';
 import { getUserById } from '../../services/userService';
 import { CommentList, CreateComment } from '../../components/comments';
+import { useTranslation } from '../../i18n';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,6 +39,7 @@ export default function PostDetailScreen() {
   const { user } = useAuthStore();
   const { posts, likePost, unlikePost, deletePost } = usePostStore();
   const { comments, getComments, loading: commentsLoading } = useCommentStore();
+  const { t, language } = useTranslation();
   
   // State
   const [post, setPost] = useState<PostType | null>(null);
@@ -45,25 +50,105 @@ export default function PostDetailScreen() {
   const [imageLoading, setImageLoading] = useState(true);
   const [commentsPage, setCommentsPage] = useState(1);
   const [loadingMoreComments, setLoadingMoreComments] = useState(false);
+  
+  // Format time with proper locale
+  const formatTime = (dateString: string | Date) => {
+    try {
+      return formatDistanceToNow(new Date(dateString), { 
+        addSuffix: true,
+        locale: language === 'vi' ? vi : undefined
+      });
+    } catch {
+      return t('common.justNow');
+    }
+  };
+  
   const [hasMoreComments, setHasMoreComments] = useState(true);
   const commentsRef = useRef<ScrollView>(null);
 
   // Get post from store
   useEffect(() => {
     console.log('Post ID from params:', id);
-    console.log('Available posts:', posts.map(p => ({ id: p.id, caption: p.caption })));
     
-    const foundPost = posts.find((p: any) => p.id === id);
-    console.log('Found post:', foundPost);
+    const fetchPost = async () => {
+      // First try to find post in the local store
+      const foundPost = posts.find((p: any) => p.id === id);
+      console.log('🧩 PostDetail - Found post in store:', foundPost ? 'Yes' : 'No');
+      
+      if (foundPost) {
+        // Kiểm tra nếu bài viết quá 24h
+        const isExpired = isPostExpired(foundPost.createdAt);
+        if (isExpired) {
+          console.log('🧩 PostDetail - Post has expired (older than 24 hours)');
+          Alert.alert(
+            t('posts.postExpiredTitle'),
+            t('posts.postExpiredMessage'),
+            [{ text: t('common.ok'), onPress: () => router.back() }]
+          );
+          return;
+        }
+        
+        setPost(foundPost);
+      } else {
+        // If not found in store, fetch from API
+        console.log('🧩 PostDetail - Post not found in store, fetching from API...');
+        try {
+          const fetchedPost = await usePostStore.getState().getPostById(id as string);
+          console.log('🧩 PostDetail - API fetch result:', fetchedPost ? 'Success' : 'Failed');
+          
+          if (fetchedPost) {
+            console.log('🧩 PostDetail - Successfully fetched post from API');
+            setPost(fetchedPost);
+          } else {
+            const error = usePostStore.getState().error;
+            console.log('🧩 PostDetail - Post not found in API, error:', error);
+            
+            // Kiểm tra loại lỗi
+            if (error && error.includes('expired')) {
+              Alert.alert(
+                t('posts.postExpiredTitle'),
+                t('posts.postExpiredMessage'),
+                [{ text: t('common.ok'), onPress: () => router.back() }]
+              );
+            } else {
+              Alert.alert(
+                t('common.error'),
+                `${t('posts.postNotFound')}. ID: ${id}`,
+                [{ text: t('common.ok'), onPress: () => router.back() }]
+              );
+            }
+          }
+        } catch (error) {
+          console.error('🧩 PostDetail - Error fetching post:', error);
+          
+          let errorMessage = t('posts.failedToLoadPost');
+          if (error instanceof Error) {
+            if (error.message.includes('expired')) {
+              errorMessage = t('posts.postExpiredMessage');
+            } else {
+              errorMessage = error.message;
+            }
+          }
+          
+          Alert.alert(
+            t('posts.postExpiredTitle'),
+            errorMessage,
+            [
+              { 
+                text: t('common.ok'), 
+                onPress: () => router.back(),
+                style: 'cancel'
+              }
+            ]
+          );
+        }
+      }
+    };
     
-    if (foundPost) {
-      setPost(foundPost);
-    } else {
-      console.log('Post not found, ID mismatch?');
-      Alert.alert('Error', 'Post not found');
-      router.back();
+    if (id) {
+      fetchPost();
     }
-  }, [posts, id]);
+  }, [id, router]);
 
   // Load post user info
   useEffect(() => {
@@ -153,7 +238,7 @@ export default function PostDetailScreen() {
       setIsLiked(!isLiked);
       setLikesCount(post.likes.length);
       console.error('Error toggling like:', error);
-      Alert.alert('Error', 'Failed to update like status');
+      Alert.alert(t('common.error'), t('posts.likeError'));
     }
   };
 
@@ -174,11 +259,11 @@ export default function PostDetailScreen() {
     if (!post) return;
     
     router.push({
-      pathname: '/map',
+      pathname: '/(tabs)/map',
       params: { 
-        latitude: post.location.latitude, 
-        longitude: post.location.longitude,
-        locationName: post.location.name || 'Unknown Location'
+        postId: post.id,
+        latitude: post.location.latitude,
+        longitude: post.location.longitude
       }
     });
   };
@@ -188,27 +273,27 @@ export default function PostDetailScreen() {
     if (!post) return;
     
     Alert.alert(
-      'Delete Post',
-      'Are you sure you want to delete this post? This action cannot be undone.',
+      t('posts.deletePostTitle'),
+      t('posts.deletePostMessage'),
       [
         {
-          text: 'Cancel',
+          text: t('common.cancel'),
           style: 'cancel',
         },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               const result = await deletePost(post.id);
               if (result.success) {
-                Alert.alert('Success', 'Post deleted successfully');
+                Alert.alert(t('common.success'), t('posts.deletePostSuccess'));
                 router.back();
               } else {
-                Alert.alert('Error', result.error || 'Failed to delete post');
+                Alert.alert(t('common.error'), result.error || t('posts.deletePostFailed'));
               }
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete post. Please try again.');
+              Alert.alert(t('common.error'), t('posts.deletePostFailed'));
             }
           },
         },
@@ -225,7 +310,7 @@ export default function PostDetailScreen() {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: isOwner ? ['Cancel', 'Delete Post'] : ['Cancel', 'Report Post'],
+          options: isOwner ? [t('common.cancel'), t('posts.deletePost')] : [t('common.cancel'), t('posts.reportPost')],
           destructiveButtonIndex: 1,
           cancelButtonIndex: 0,
         },
@@ -234,7 +319,7 @@ export default function PostDetailScreen() {
             if (isOwner) {
               handleDeletePost();
             } else {
-              Alert.alert('Report', 'Report functionality coming soon');
+              Alert.alert(t('posts.reportTitle'), t('posts.reportMessage'));
             }
           }
         }
@@ -242,20 +327,20 @@ export default function PostDetailScreen() {
     } else {
       if (isOwner) {
         Alert.alert(
-          'Post Options', 
-          'Choose an action',
+          t('posts.postOptionsTitle'), 
+          t('posts.postOptionsMessage'),
           [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete Post', style: 'destructive', onPress: handleDeletePost }
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('posts.deletePost'), style: 'destructive', onPress: handleDeletePost }
           ]
         );
       } else {
         Alert.alert(
-          'Post Options', 
-          'Choose an action',
+          t('posts.postOptionsTitle'), 
+          t('posts.postOptionsMessage'),
           [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Report Post', onPress: () => Alert.alert('Report', 'Report functionality coming soon') }
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('posts.reportPost'), onPress: () => Alert.alert(t('posts.reportTitle'), t('posts.reportMessage')) }
           ]
         );
       }
@@ -266,7 +351,7 @@ export default function PostDetailScreen() {
   const handleShare = async () => {
     try {
       // Share functionality
-      Alert.alert('Share', 'Share functionality coming soon');
+      Alert.alert(t('posts.shareTitle'), t('posts.shareMessage'));
     } catch (error) {
       console.error('Error sharing:', error);
     }
@@ -357,7 +442,7 @@ export default function PostDetailScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading post...</Text>
+          <Text style={styles.loadingText}>{t('posts.loadingPost')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -416,7 +501,7 @@ export default function PostDetailScreen() {
               />
               <View>
                 <Text style={styles.username}>
-                  {postUser?.fullname || postUser?.username || 'User'}
+                  {postUser?.fullname || postUser?.username || t('posts.defaultUser')}
                 </Text>
                 <Text style={styles.location}>{post.location.name}</Text>
               </View>
@@ -467,14 +552,18 @@ export default function PostDetailScreen() {
                 <MessageCircle size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.actionButton} onPress={handleViewLocation}>
-              <Navigation size={24} color={colors.text} />
+            <TouchableOpacity 
+              style={[styles.actionButton, styles.findLocationButton]} 
+              onPress={handleViewLocation}
+            >
+              <Navigation size={24} color="white" />
+              <Text style={styles.findLocationText}>{t('posts.findLocation')}</Text>
             </TouchableOpacity>
           </View>
           
           {/* Post Content */}
           <View style={styles.postContent}>
-            <Text style={styles.likesCount}>{likesCount} likes</Text>
+            <Text style={styles.likesCount}>{likesCount} {t('posts.likes')}</Text>
             
             {/* Comments Preview Text */}
             {commentCount > 0 && (
@@ -483,18 +572,18 @@ export default function PostDetailScreen() {
                 onPress={scrollToComments}
               >
                 <Text style={styles.viewCommentsText}>
-                  {commentCount} {commentCount === 1 ? 'comment' : 'comments'}
+                  {commentCount} {commentCount === 1 ? t('posts.comment_singular') : t('posts.comment_plural')}
                 </Text>
               </TouchableOpacity>
             )}
             
-            <Text style={styles.timestamp}>{formatTimeAgo(post.createdAt)}</Text>
+            <Text style={styles.timestamp}>{formatTime(post.createdAt)}</Text>
           </View>
 
           {/* Direct Comments Display */}
           {commentCount > 0 && (
             <View style={styles.commentsSection} testID="comments-section">
-              <Text style={styles.commentsSectionTitle}>Comments ({commentCount})</Text>
+              <Text style={styles.commentsSectionTitle}>{t('posts.commentsTitle')} ({commentCount})</Text>
               
               {/* Display comments without height restriction */}
               <CommentList 
@@ -513,7 +602,7 @@ export default function PostDetailScreen() {
                   {loadingMoreComments ? (
                     <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
-                    <Text style={styles.loadMoreText}>Load more comments</Text>
+                    <Text style={styles.loadMoreText}>{t('posts.loadMoreComments')}</Text>
                   )}
                 </TouchableOpacity>
               )}
@@ -587,29 +676,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 8, // Reduced padding to move back button closer to edge
+    paddingHorizontal: 8,
     paddingVertical: 12,
     paddingTop: 16,
-    marginTop: 16, // Add margin top to push content down
+    marginTop: 16,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginLeft: 8, // Reduced space between back button and user info
-    marginRight: 12, // Space between user info and more button
+    marginLeft: 8,
+    marginRight: 12,
   },
   backButton: {
-    padding: 4, // Reduced padding to move button closer to edge
+    padding: 4,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 4, // Small margin to keep some space from screen edge
+    marginLeft: 4,
   },
   moreButton: {
-    padding: 4, // Match back button padding
+    padding: 4,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 4, // Small margin to keep some space from screen edge
+    marginRight: 4,
   },
   avatar: {
     width: 44,
@@ -631,7 +720,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     aspectRatio: 1,
     backgroundColor: colors.card,
-    marginTop: 8, // Add margin top to create space between header and image
+    marginTop: 8,
   },
   imageLoadingContainer: {
     position: 'absolute',
@@ -661,6 +750,20 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 8,
     marginRight: 16,
+  },
+  findLocationButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  findLocationText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   postContent: {
     paddingHorizontal: 16,
@@ -732,7 +835,6 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   commentsContainer: {
-    // Remove maxHeight to allow full comment display including images
     backgroundColor: colors.background,
   },
   loadMoreButton: {

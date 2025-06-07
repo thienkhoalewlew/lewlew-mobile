@@ -1,17 +1,25 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, StyleSheet, Text, Platform, TouchableOpacity, LogBox } from 'react-native';
+import { View, StyleSheet, Text, Platform, TouchableOpacity, LogBox, ScrollView } from 'react-native';
+import * as Location from 'expo-location';
 import Mapbox, {
   MapView as MapboxMapView,
   Camera,
   PointAnnotation,
   ShapeSource,
   FillLayer,
-  LineLayer
+  LineLayer,
+  UserLocation,
+  UserLocationRenderMode,
+  UserTrackingMode
 } from '@rnmapbox/maps';
+import { MapPin, Navigation2, Car, Bike, X, Play, Pause } from 'lucide-react-native';
 import { useLocationStore } from '../store/locationStore';
+import { useUserStore } from '../store/userStore';
+import { useTranslation } from '../i18n';
 import { Post, Region, User } from '../types';
 import { colors } from '../constants/colors';
-import '../config/mapbox'; // Khởi tạo Mapbox
+import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
+import { PostGroupView } from './PostGroupView';
  
 // Suppress Mapbox warnings
 LogBox.ignoreLogs([
@@ -21,28 +29,47 @@ LogBox.ignoreLogs([
   'Text strings must be rendered within a <Text> component'
 ]);
 /**
- * MapView Component với Clustering Posts và Navigation
+ * MapView Component with Clustering Posts and Navigation
  * 
  * Features:
- * - Nhóm các posts có cùng vị trí thành clusters
- * - Hiển thị tất cả marker dưới dạng cluster (bao gồm cả single post)
- * - Màu sắc marker thay đổi theo số lượng posts (càng nhiều càng đậm)
- * - Hỗ trợ hiển thị both single post và multiple posts
- * - Hiển thị route navigation và user location tracking
+ * - Group posts with same location into clusters
+ * - Display all markers as clusters (including single posts)
+ * - Marker colors change according to number of posts (more posts = darker color)
+ * - Support display of both single post and multiple posts
+ * - Display route navigation and user location tracking
  */
 
 // This is a placeholder component for the map view
 // In a real app, you would use react-native-maps for native platforms
 // and a web-compatible map library for web
 
+interface RouteInfo {
+  distance: number;
+  duration: number;
+  steps: Array<{
+    maneuver: string;
+    instruction: string;
+    distance: number;
+    duration: number;
+  }>;
+}
+
 interface MapViewProps {
   posts: Post[];
   selectedPostId?: string;
   onMarkerPress?: (post: Post | Post[]) => void;
   onMarkerLongPress?: (post: Post) => void;
-  showUserLocation?: boolean;
-  user?: User; // Thêm user để lấy settings
-  filterByRadius?: boolean; // Thêm props để control filter
+  showUserLocation?: boolean;  user?: User; // Add user to get settings
+  filterByRadius?: boolean; // Add props to control filter
+  shouldDrawRoute?: boolean;  onRouteDrawn?: () => void;
+}
+
+interface LocationUpdate {
+  coords: {
+    latitude: number;
+    longitude: number;
+    heading: number | null;
+  }
 }
 
 export const MapView: React.FC<MapViewProps> = ({
@@ -51,38 +78,44 @@ export const MapView: React.FC<MapViewProps> = ({
   onMarkerPress,
   showUserLocation = true,
   user,
-  filterByRadius = true, // Mặc định là true để tương thích với map tab
+  filterByRadius = true,
+  shouldDrawRoute = false,
+  onRouteDrawn
 }) => {
-  // ZOOM CONFIGURATION - Dễ dàng tùy chỉnh
+  const { t } = useTranslation();
+    // ZOOM CONFIGURATION - Easy to customize
   const ZOOM_CONFIG = {
     // Zoom levels
-    MIN_ZOOM: 8,           // Zoom out tối đa
-    MAX_ZOOM: 20,          // Zoom in tối đa  
-    DEFAULT_ZOOM: 15,      // Zoom mặc định
+    MIN_ZOOM: 8,           // Maximum zoom out
+    MAX_ZOOM: 20,          // Maximum zoom in  
+    DEFAULT_ZOOM: 15,      // Default zoom
     
     // Zoom calculation parameters
-    BASE_ZOOM_FACTOR: 15,  // Tăng để zoom gần hơn, giảm để zoom xa hơn
-    RADIUS_MULTIPLIER: 2,  // Tăng để zoom xa hơn, giảm để zoom gần hơn
+    BASE_ZOOM_FACTOR: 15,  // Increase to zoom closer, decrease to zoom farther
+    RADIUS_MULTIPLIER: 2,  // Increase to zoom farther, decrease to zoom closer
     
     // Zoom constraints
-    ALLOW_FREE_ZOOM: false, // true = cho phép zoom tự do, false = giới hạn theo radius
-    ZOOM_STEP: 0.5,        // Bước nhảy zoom level
+    ALLOW_FREE_ZOOM: false, // true = allow free zoom, false = limit by radius
+    ZOOM_STEP: 0.5,        // Zoom level step
     
     // Animation
     ZOOM_ANIMATION_DURATION: 600, // ms
   };
   const { currentLocation, getCurrentLocation } = useLocationStore();
+  const { currentUser } = useUserStore();
   
   const [region, setRegion] = useState<Region | null>(null);
-  const [isMapReady, setIsMapReady] = useState(false);
-  const [currentZoom, setCurrentZoom] = useState<number>(14);
+  const [isMapReady, setIsMapReady] = useState(false);  const [currentZoom, setCurrentZoom] = useState<number>(14);
   
-  // Lấy bán kính từ user settings (mặc định 5km)
-  const notificationRadius = user?.settings?.notificationRadius || 5;
+  // Get radius from user settings (default 5km)
+  const notificationRadius = currentUser?.settings?.notificationRadius || 5;
   
-  // Hàm tính khoảng cách giữa 2 điểm (Haversine formula)
+  useEffect(() => {
+    console.log('MapView using notification radius:', notificationRadius, 'km');
+  }, [notificationRadius]);
+    // Function to calculate distance between 2 points (Haversine formula)
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Bán kính Trái đất tính bằng km
+    const R = 6371; // Earth's radius in km
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = 
@@ -92,7 +125,7 @@ export const MapView: React.FC<MapViewProps> = ({
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
   };
-    // Filter posts theo bán kính notification
+  // Filter posts by notification radius
   const postsInRadius = useMemo(() => {
     if (!filterByRadius || !currentLocation) return posts;
     
@@ -103,16 +136,18 @@ export const MapView: React.FC<MapViewProps> = ({
         post.location.latitude,
         post.location.longitude
       );
+      console.log(`Post ${post.id} distance: ${distance}km, radius: ${notificationRadius}km`);
       return distance <= notificationRadius;
     });
   }, [posts, currentLocation, notificationRadius, filterByRadius]);
-  // Nhóm các posts theo vị trí với spacing thích ứng theo zoom
+  
+  // Group posts by location with adaptive spacing based on zoom  
   const groupPostsByLocation = (posts: Post[]) => {
     const grouped: { [key: string]: Post[] } = {};
     
-    // Threshold thích ứng theo zoom - zoom gần thì spacing lớn hơn
+    // Adaptive threshold based on zoom - closer zoom means larger spacing
     const baseThreshold = 0.0001;
-    const zoomAdjustment = Math.max(0.5, Math.min(2, currentZoom / 15)); // 0.5x đến 2x
+    const zoomAdjustment = Math.max(0.5, Math.min(2, currentZoom / 15)); // 0.5x to 2x
     const threshold = baseThreshold / zoomAdjustment;
 
     posts.forEach(post => {
@@ -126,20 +161,18 @@ export const MapView: React.FC<MapViewProps> = ({
     return Object.values(grouped);
   };
   const groupedPosts = useMemo(() => groupPostsByLocation(postsInRadius), [postsInRadius, currentZoom]);
-
-  // Tạo GeoJSON circle cho bán kính thông báo
+  // Create GeoJSON circle for notification radius
   const createCircle = (center: [number, number], radiusInKm: number, steps: number = 64) => {
     const coords = [];
     const distanceX = radiusInKm / (111.32 * Math.cos(center[1] * Math.PI / 180));
     const distanceY = radiusInKm / 110.54;
-
     for (let i = 0; i < steps; i++) {
       const theta = (i / steps) * (2 * Math.PI);
       const x = distanceX * Math.cos(theta);
       const y = distanceY * Math.sin(theta);
       coords.push([center[0] + x, center[1] + y]);
     }
-    coords.push(coords[0]); // Đóng polygon
+    coords.push(coords[0]); // Close polygon
 
     return {
       type: 'Feature' as const,
@@ -154,133 +187,300 @@ export const MapView: React.FC<MapViewProps> = ({
   const radiusCircle = useMemo(() => {
     if (!currentLocation) return null;
     return createCircle([currentLocation.longitude, currentLocation.latitude], notificationRadius);
-  }, [currentLocation, notificationRadius]);  
+  }, [currentLocation, notificationRadius]);
   const getMarkerColor = useMemo(() => (postCount: number) => {
-    if (postCount === 1) return '#FF385C'; // Màu đỏ nhạt cho 1 post
-    if (postCount <= 3) return '#E02444'; // Màu đỏ vừa cho 2-3 posts
-    if (postCount <= 5) return '#C41E3A'; // Màu đỏ đậm cho 4-5 posts
-    if (postCount <= 10) return '#A01A32'; // Màu đỏ đậm hơn cho 6-10 posts
-    return '#800020'; // Màu đỏ rất đậm cho >10 posts
+    if (postCount === 1) return '#4A89F3'; // Blue for 1 post
+    if (postCount <= 3) return '#00C853'; // Green for 2-3 posts
+    if (postCount <= 5) return '#FFD600'; // Yellow for 4-5 posts
+    if (postCount <= 10) return '#FF6D00'; // Orange for 6-10 posts
+    return '#D500F9'; // Purple for >10 posts
   }, []);
-  // Hàm tính kích thước marker dựa trên zoom level
+  // Function to calculate marker size based on zoom level
   const getMarkerSize = useMemo(() => (postCount: number, zoomLevel: number) => {
-    // Base size tùy theo số lượng posts
-    let baseSize = 16; // Kích thước cơ bản cho 1 post
-    if (postCount > 1) baseSize = 20;
-    if (postCount > 3) baseSize = 24;
-    if (postCount > 5) baseSize = 28;
-    if (postCount > 10) baseSize = 32;
+    // Base size according to number of posts - reduce basic size
+    let baseSize = 12; // Reduced from 16 to 12 for 1 post
+    if (postCount > 1) baseSize = 14; // Reduced from 20 to 14
+    if (postCount > 3) baseSize = 16; // Reduced from 24 to 16
+    if (postCount > 5) baseSize = 18; // Reduced from 28 to 18
+    if (postCount > 10) baseSize = 20; // Reduced from 32 to 20
     
-    // Zoom factor - tăng kích thước khi zoom gần
-    const zoomFactor = Math.max(0.5, Math.min(2, (zoomLevel - 8) / 8)); // Từ 0.5x đến 2x
+    // Zoom factor - reduce size increase speed when zooming
+    const zoomFactor = Math.max(0.5, Math.min(1.5, (zoomLevel - 8) / 10)); // Reduced max factor from 2 to 1.5
     
-    return Math.round(baseSize * (0.8 + zoomFactor * 0.7)); // Min: baseSize*0.8, Max: baseSize*1.5
+    return Math.round(baseSize * (0.8 + zoomFactor * 0.5)); // Reduced multiplier factor from 0.7 to 0.5
   }, []);
-
-  // Hàm tính offset để tránh marker đè nhau
+  // Function to calculate offset to avoid overlapping markers
   const getMarkerOffset = useMemo(() => (index: number, postCount: number, markerSize: number) => {
-    if (index === 0) return { x: 0, y: 0 }; // Marker đầu tiên ở vị trí gốc
+    if (index === 0) return { x: 0, y: 0 }; // First marker at origin position
     
-    // Pattern offset dạng spiral
-    const angle = (index * 60) * (Math.PI / 180); // 60 độ mỗi marker
-    const distance = markerSize * 0.8; // Khoảng cách = 80% kích thước marker
+    // Spiral pattern offset
+    const angle = (index * 60) * (Math.PI / 180); // 60 degrees per marker
+    const distance = markerSize * 0.8; // Distance = 80% of marker size
     
     return {
       x: Math.cos(angle) * distance,
       y: Math.sin(angle) * distance
     };
   }, []);
-
-  // Hàm tính z-index để marker nhỏ render trên marker lớn
+  // Function to calculate z-index so small markers render on top of large markers
   const getMarkerZIndex = useMemo(() => (postCount: number, isSelected: boolean) => {
-    let baseZIndex = 1000 - postCount; // Marker ít post có z-index cao hơn
-    if (isSelected) baseZIndex += 1000; // Selected marker luôn ở trên cùng
+    let baseZIndex = 1000 - postCount; // Markers with fewer posts have higher z-index
+    if (isSelected) baseZIndex += 1000; // Selected marker always on top
     return baseZIndex;
   }, []);
-  
-  // Hàm tính zoom level dựa trên bán kính (km) - Improved Version
+    // Function to calculate zoom level based on radius (km) - Improved Version
   const calculateZoomLevel = (radiusKm: number): number => {
-    // Sử dụng ZOOM_CONFIG để tính toán
+    // Use ZOOM_CONFIG for calculation
     const minRadius = 0.1;
     const adjustedRadius = Math.max(radiusKm, minRadius);
     
-    // Công thức sử dụng config
+    // Formula using config
     const baseZoom = ZOOM_CONFIG.BASE_ZOOM_FACTOR - Math.log2(adjustedRadius * ZOOM_CONFIG.RADIUS_MULTIPLIER);
     
-    // Giới hạn zoom level theo config
+    // Limit zoom level according to config
     const clampedZoom = Math.max(ZOOM_CONFIG.MIN_ZOOM, Math.min(ZOOM_CONFIG.MAX_ZOOM, baseZoom));
     
-    // Round theo ZOOM_STEP
+    // Round according to ZOOM_STEP
     return Math.round(clampedZoom / ZOOM_CONFIG.ZOOM_STEP) * ZOOM_CONFIG.ZOOM_STEP;
   };
-
-  // Tính zoom level phù hợp với bán kính hiện tại
+  // Calculate appropriate zoom level for current radius
   const appropriateZoomLevel = useMemo(() => {
     return calculateZoomLevel(notificationRadius);
   }, [notificationRadius]);
 
+  // Local state for component readiness
+  const [isReady, setIsReady] = useState(false);
+  const [localLocation, setLocalLocation] = useState(currentLocation);
+
+  // Effect to handle initial setup after mount
   useEffect(() => {
-    if (!currentLocation) {
-      getCurrentLocation();
-    } else if (!region) {
+    let mounted = true;
+
+    const setup = async () => {
+      try {
+        // Wait a bit to ensure proper mounting
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        if (!mounted) return;
+
+        // Set component as ready
+        setIsReady(true);
+
+        // Handle location if needed
+        if (!localLocation) {
+          if (Platform.OS !== 'web') {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted' || !mounted) return;
+          }
+
+          const location = await Location.getCurrentPositionAsync({});
+          if (!mounted) return;
+
+          const newLocation = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          };
+
+          setLocalLocation(newLocation);
+          
+          // Only update store after we're sure component is ready
+          useLocationStore.setState({ currentLocation: newLocation });
+        }
+      } catch (error) {
+        console.error('Error in setup:', error);
+      }
+    };
+
+    setup();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Effect to handle region updates
+  useEffect(() => {
+    if (isReady && localLocation && !region) {
       setRegion({
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
+        latitude: localLocation.latitude,
+        longitude: localLocation.longitude,
         latitudeDelta: 0.0922,
         longitudeDelta: 0.0421,
       });
     }
-  }, [currentLocation]);
-
-  // Thêm delay để đảm bảo map được render hoàn toàn
+  }, [isReady, localLocation, region]);
+  // Add delay to ensure map is fully rendered
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsMapReady(true);
-    }, 1000); // Tăng delay lên 1 giây
+    }, 1000); // Increased delay to 1 second
     
     return () => clearTimeout(timer);
   }, []);
 
-  const handleRegionChange = (event: any) => {
+  const handleRegionChange = () => {
+    setIsTrackingUser(false);
+  };
+  // State for route navigation
+  const [routeCoordinates, setRouteCoordinates] = useState<[number, number][] | null>(null);
+  const [selectedDestination, setSelectedDestination] = useState<Post | null>(null);
+    // GeoJSON for route
+  const routeGeoJSON = useMemo(() => {
+    if (!routeCoordinates || !currentLocation) return null;
+    
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: [
+          [currentLocation.longitude, currentLocation.latitude],
+          ...routeCoordinates
+        ],
+      },
+    };
+  }, [routeCoordinates, currentLocation]);
+
+  // New state for navigation features
+  const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
+  const [selectedMode, setSelectedMode] = useState<'walking' | 'cycling' | 'driving'>('walking');
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+
+  // Function to format distance
+  const formatDistance = (meters: number) => {
+    if (meters < 1000) {
+      return `${Math.round(meters)}m`;
+    }
+    return `${(meters / 1000).toFixed(1)}km`;
+  };
+
+  // Function to format duration
+  const formatDuration = (seconds: number) => {
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) {
+      return `${minutes} min`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}min`;
+  };
+
+  // Updated getRoute function with more details and auto zoom
+  const getRoute = async (destination: Post) => {
     try {
-      let newZoom: number | undefined;
+      if (!currentLocation || !mapRef.current) return;
       
-      // Try different event structures for zoom level
-      if (event?.properties?.zoomLevel !== undefined) {
-        newZoom = event.properties.zoomLevel;
-      } else if (event?.zoomLevel !== undefined) {
-        newZoom = event.zoomLevel;
-      } else if (event?.zoom !== undefined) {
-        newZoom = event.zoom;
-      }
+      const start = `${currentLocation.longitude},${currentLocation.latitude}`;
+      const end = `${destination.location.longitude},${destination.location.latitude}`;
       
-      if (newZoom === undefined) return;
+      const response = await fetch(
+        `https://api.mapbox.com/directions/v5/mapbox/${selectedMode}/${start};${end}?` +
+        `steps=true&geometries=geojson&overview=full&voice_instructions=true&` +
+        `banner_instructions=true&access_token=${MAPBOX_ACCESS_TOKEN}`
+      );
       
-      if (ZOOM_CONFIG.ALLOW_FREE_ZOOM) {
-        // Cho phép zoom tự do trong giới hạn min/max
-        const clampedZoom = Math.max(ZOOM_CONFIG.MIN_ZOOM, Math.min(ZOOM_CONFIG.MAX_ZOOM, newZoom));
-        setCurrentZoom(clampedZoom);
-      } else {
-        // Giới hạn theo bán kính notification
-        if (newZoom < appropriateZoomLevel) {
-          setCurrentZoom(appropriateZoomLevel);
-        } else if (newZoom > ZOOM_CONFIG.MAX_ZOOM) {
-          setCurrentZoom(ZOOM_CONFIG.MAX_ZOOM);
-        } else {
-          setCurrentZoom(newZoom);
-        }
+      const data = await response.json();
+      
+      if (data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        const coordinates = route.geometry.coordinates;
+        setRouteCoordinates(coordinates);
+        setSelectedDestination(destination);
+        
+        // Set route info
+        setRouteInfo({
+          distance: route.distance,
+          duration: route.duration,
+          steps: route.legs[0].steps.map((step: any) => ({
+            maneuver: step.maneuver.type,
+            instruction: step.maneuver.instruction,
+            distance: step.distance,
+            duration: step.duration
+          }))
+        });
+        
+        // Reset navigation state
+        setCurrentStepIndex(0);
+        setIsNavigating(false);
+
+        // Calculate bounds for the route
+        let minLng = Math.min(...coordinates.map((coord: [number, number]) => coord[0]));
+        let maxLng = Math.max(...coordinates.map((coord: [number, number]) => coord[0]));
+        let minLat = Math.min(...coordinates.map((coord: [number, number]) => coord[1]));
+        let maxLat = Math.max(...coordinates.map((coord: [number, number]) => coord[1]));
+
+        // Add padding to bounds (10% of the route dimensions)
+        const latPadding = (maxLat - minLat) * 0.1;
+        const lngPadding = (maxLng - minLng) * 0.1;
+        
+        minLat -= latPadding;
+        maxLat += latPadding;
+        minLng -= lngPadding;
+        maxLng += lngPadding;
+
+        // Calculate appropriate zoom level based on route bounds
+        const latDiff = maxLat - minLat;
+        const lngDiff = maxLng - minLng;
+        const maxDiff = Math.max(latDiff, lngDiff);
+        
+        // Adjust zoom based on route size (smaller route = higher zoom)
+        let newZoom = Math.floor(14 - Math.log2(maxDiff * 111)); // 111km per degree
+        newZoom = Math.min(Math.max(newZoom, 11), 16); // Limit zoom between 11 and 16
+
+        // Update camera state to show the entire route
+        const centerCoordinate: [number, number] = [
+          (minLng + maxLng) / 2,
+          (minLat + maxLat) / 2
+        ];
+
+        // Update region state to trigger camera movement
+        setRegion({
+          latitude: centerCoordinate[1],
+          longitude: centerCoordinate[0],
+          latitudeDelta: latDiff * 1.2, // Add 20% padding
+          longitudeDelta: lngDiff * 1.2,
+        });
+
+        setCurrentZoom(newZoom);
+        setIsTrackingUser(false);
       }
     } catch (error) {
-      // Silent error handling
-      if (__DEV__) {
-        console.warn('Camera change error:', error);
-      }
+      console.error('Error getting route:', error);
     }
-  };  // Cập nhật zoom level khi notification radius thay đổi
+  };
+
+  // Function to handle transport mode change
+  const handleModeChange = (mode: 'walking' | 'cycling' | 'driving') => {
+    setSelectedMode(mode);
+    if (selectedDestination) {
+      getRoute(selectedDestination);
+    }
+  };
+
+  // Function to toggle navigation
+  const toggleNavigation = () => {
+    setIsNavigating(!isNavigating);
+  };
+
+  // Effect to update current step during navigation
   useEffect(() => {
-    setCurrentZoom(appropriateZoomLevel);
-  }, [appropriateZoomLevel]);
-  
+    if (!isNavigating || !routeInfo) return;
+
+    const interval = setInterval(() => {
+      // Update current step based on user's location
+      // This is a simplified version - in a real app, you would:
+      // 1. Calculate distance to next maneuver point
+      // 2. Check if user has reached or passed that point
+      // 3. Update step accordingly
+      if (currentStepIndex < routeInfo.steps.length - 1) {
+        setCurrentStepIndex(prev => prev + 1);
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [isNavigating, routeInfo, currentStepIndex]);
+
   // Add error handling for marker press
   const handleMarkerPress = (postOrGroup: Post | Post[]) => {
     try {
@@ -292,10 +492,27 @@ export const MapView: React.FC<MapViewProps> = ({
         console.warn('Marker press error:', error);
       }
     }
-  };  // Handle marker long press - navigation functionality removed
+  };
+
+  // Function to clear route and reset navigation state
+  const clearRoute = () => {
+    setRouteInfo(null);
+    setRouteCoordinates(null);
+    setSelectedDestination(null);
+    setIsNavigating(false);
+    setCurrentStepIndex(0);
+  };
+
+  // Handle marker long press - add navigation
   const handleMarkerLongPress = async (post: Post) => {
     try {
-      // Navigation functionality has been removed
+      // Toggle route - if same destination, clear route
+      if (selectedDestination?.id === post.id) {
+        setRouteCoordinates(null);
+        setSelectedDestination(null);
+      } else {
+        await getRoute(post);
+      }
     } catch (error) {
       if (__DEV__) {
         console.warn('Marker long press error:', error);
@@ -304,46 +521,103 @@ export const MapView: React.FC<MapViewProps> = ({
   };
 
   // Refresh function to reload map and posts
-  const refreshMap = () => {
-    // Reload current location
-    getCurrentLocation();
-    
-    // Reset map to ready state to trigger re-render
-    setIsMapReady(false);
-    setTimeout(() => {
+  const refreshMap = async () => {
+    try {
+      if (!isReady || !mapRef.current) {
+        console.warn('Map not ready for refresh');
+        return;
+      }
+
+      // Reset states first
+      setIsMapReady(false);
+
+      // Get new location
+      const location = await Location.getCurrentPositionAsync({});
+      
+      // Update local state first
+      const newLocation = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+      
+      setLocalLocation(newLocation);
+      
+      // Then update store
+      useLocationStore.setState({ currentLocation: newLocation });
+
+      // Finally update other states
       setIsMapReady(true);
-    }, 500); // Tăng delay để đảm bảo cleanup hoàn toàn
-    
-    // Reset zoom to appropriate level
-    setCurrentZoom(appropriateZoomLevel);
+      setCurrentZoom(appropriateZoomLevel);
+      setIsTrackingUser(true);
+    } catch (error) {
+      console.error('Error refreshing map:', error);
+      // Restore states on error
+      setIsMapReady(true);
+    }
+  };
+
+  // Effect to handle route drawing when shouldDrawRoute changes
+  useEffect(() => {
+    if (shouldDrawRoute && selectedPostId) {
+      const selectedPost = posts.find(post => post.id === selectedPostId);
+      if (selectedPost) {
+        getRoute(selectedPost).then(() => {
+          if (onRouteDrawn) {
+            onRouteDrawn();
+          }
+        });
+      }
+    }
+  }, [shouldDrawRoute, selectedPostId, posts]);
+
+  // Add state for user heading
+  const [userHeading, setUserHeading] = useState<number>(0);
+  const [isTrackingUser, setIsTrackingUser] = useState(true);
+
+  // Reference to MapView
+  const mapRef = React.useRef<MapboxMapView>(null);
+
+  // PostGroupView for clusters
+  const [selectedPostGroup, setSelectedPostGroup] = useState<Post[]>([]);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+
+  const handleCloseGroup = () => {
+    setSelectedPostGroup([]);
+    setSelectedPost(null);
+  };
+
+  const handleSelectPostFromGroup = (post: Post) => {
+    setSelectedPostGroup([post]);
+    setSelectedPost(post);
   };
   if (Platform.OS === 'web') {
     return (
       <View style={styles.container}>
         <View style={styles.mapPlaceholder}>
           <Text style={styles.mapPlaceholderText}>
-            Map View
+            {t('map.mapView')}
           </Text>
           <Text style={styles.mapPlaceholderSubtext}>
             {currentLocation 
-              ? `Current Location: ${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}`
-              : 'Loading location...'}
+              ? `${t('map.currentLocation')}: ${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}`
+              : t('map.loadingLocation')}
           </Text>
           <Text style={styles.mapPlaceholderSubtext}>
-            {`${postsInRadius.length} posts within ${notificationRadius}km radius`}
+            {`${postsInRadius.length} ${postsInRadius.length === 1 ? t('map.photo') : t('map.photos')} ${t('map.within')} ${notificationRadius} ${t('map.kilometers')} ${t('map.radius')}`}
           </Text>
           <Text style={styles.mapPlaceholderNote}>
-            Note: Full map functionality requires native device capabilities.
+            {t('map.webMapNote')}
           </Text>
         </View>
       </View>
     );
   }
 
-  // Mapbox cho native platforms
+  // Mapbox for native platforms
   return (
     <View style={styles.container}>
       <MapboxMapView 
+        ref={mapRef}
         style={styles.map}
         styleURL={'mapbox://styles/mapbox/navigation-night-v1'}
         logoEnabled={false}
@@ -355,6 +629,7 @@ export const MapView: React.FC<MapViewProps> = ({
           setIsMapReady(true);
         }}
         onCameraChanged={handleRegionChange}
+        onTouchStart={() => setIsTrackingUser(false)}
         zoomEnabled={true}
         scrollEnabled={true}
         pitchEnabled={false}
@@ -363,14 +638,15 @@ export const MapView: React.FC<MapViewProps> = ({
         scaleBarEnabled={false}
       >
         {/* Camera */}
-        {currentLocation && isMapReady && (
+        {currentLocation && (
           <Camera
-            key={`camera-${currentLocation.latitude}-${currentLocation.longitude}-${currentZoom}`}
             centerCoordinate={[currentLocation.longitude, currentLocation.latitude]}
             zoomLevel={currentZoom}
             animationMode="flyTo"
-            animationDuration={ZOOM_CONFIG.ZOOM_ANIMATION_DURATION}
-            followUserLocation={false}
+            animationDuration={500}
+            followUserLocation={isTrackingUser}
+            followUserMode={UserTrackingMode.Follow}
+            followZoomLevel={currentZoom}
           />
         )}
         {/* Post markers - Anti-overlap with smart positioning */}
@@ -384,7 +660,9 @@ export const MapView: React.FC<MapViewProps> = ({
             const markerSize = getMarkerSize(postCount, currentZoom);
             const zIndex = getMarkerZIndex(postCount, isSelected);
             const baseKey = `${firstPost.id}-${postCount}-${Math.round(currentZoom)}`;
-            if (postGroup.length > 1 && currentZoom > 12) {
+
+            // Display individual markers when zoom is close enough (>14) or when marker is selected
+            if ((postGroup.length > 1 && currentZoom > 14) || isSelected) {
               return postGroup.map((post, subIndex) => {
                 const offset = getMarkerOffset(subIndex, postCount, markerSize);
                 const subMarkerId = `sub-${baseKey}-${subIndex}`;
@@ -394,55 +672,54 @@ export const MapView: React.FC<MapViewProps> = ({
                 const offsetLat = firstPost.location.latitude + (offset.y * 0.00001); 
                 const offsetLng = firstPost.location.longitude + (offset.x * 0.00001);
                 
-            return (
-              <PointAnnotation
-                key={subMarkerId}
-                id={subMarkerId}
-                coordinate={[offsetLng, offsetLat]}
-                anchor={{ x: 0.5, y: 0.5 }}
-                onSelected={() => {
-                  console.log('Sub-marker selected:', post.id);
-                  handleMarkerPress(post);
-                }}
-              >
-                <TouchableOpacity
-                  onPress={() => {
-                    handleMarkerPress(post);
-                  }}
-                  onLongPress={() => {
-                    handleMarkerLongPress(post);
-                  }}
-                  delayLongPress={800}
-                  activeOpacity={0.8}
-                >
-                <View style={[
-                  styles.markerContainer,
-                  { zIndex: zIndex + subIndex },
-                  styles.clusterMarker,
-                  { 
-                    backgroundColor: getMarkerColor(1),
-                    width: subMarkerSize,
-                    height: subMarkerSize,
-                    borderRadius: subMarkerSize / 2,
-                  },
-                  isSubSelected && {
-                    width: subMarkerSize + 4,
-                    height: subMarkerSize + 4,
-                    borderRadius: (subMarkerSize + 4) / 2,
-                    borderWidth: 3,
-                    transform: [{ scale: 1.1 }],
-                    shadowOpacity: 0.5,
-                    shadowRadius: 6,
-                    elevation: 12,
-                  }
-                  ]}
-                />
-              </TouchableOpacity>
-              </PointAnnotation>
-            );
-          });
-            }
-            else {
+                return (
+                  <PointAnnotation
+                    key={subMarkerId}
+                    id={subMarkerId}
+                    coordinate={[offsetLng, offsetLat]}
+                    anchor={{ x: 0.5, y: 0.5 }}
+                    onSelected={() => {
+                      console.log('Sub-marker selected:', post.id);
+                      handleMarkerPress(post);
+                    }}
+                  >
+                    <TouchableOpacity
+                      onPress={() => {
+                        handleMarkerPress(post);
+                      }}
+                      onLongPress={() => {
+                        handleMarkerLongPress(post);
+                      }}
+                      delayLongPress={800}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[
+                        styles.markerContainer,
+                        { zIndex: zIndex + subIndex },
+                        styles.clusterMarker,
+                        { 
+                          backgroundColor: getMarkerColor(1),
+                          width: subMarkerSize,
+                          height: subMarkerSize,
+                          borderRadius: subMarkerSize / 2,
+                        },
+                        isSubSelected && {
+                          width: subMarkerSize + 4,
+                          height: subMarkerSize + 4,
+                          borderRadius: (subMarkerSize + 4) / 2,
+                          borderWidth: 3,
+                          transform: [{ scale: 1.1 }],
+                          shadowOpacity: 0.5,
+                          shadowRadius: 6,
+                          elevation: 12,
+                        }
+                      ]} />
+                    </TouchableOpacity>
+                  </PointAnnotation>
+                );
+              });
+            } else {
+              // Display group marker
               const markerId = `marker-${baseKey}`;
               return (
                 <React.Fragment key={markerId}>
@@ -472,30 +749,29 @@ export const MapView: React.FC<MapViewProps> = ({
                         { zIndex },
                         styles.clusterMarker,
                         {
-                        backgroundColor: markerColor,
-                        width: markerSize,
-                        height: markerSize,
-                        borderRadius: markerSize / 2,
-                      },
-                      isSelected && {
-                        width: markerSize + 6,
-                        height: markerSize + 6,
-                        borderRadius: (markerSize + 6) / 2,
-                        borderWidth: 4,
-                        transform: [{ scale: 1.1 }],
-                        shadowOpacity: 0.5,
-                        shadowRadius: 6,
-                        elevation: 12,
-                      }
-                  ]}>
-                      </View>
+                          backgroundColor: markerColor,
+                          width: markerSize,
+                          height: markerSize,
+                          borderRadius: markerSize / 2,
+                        },
+                        isSelected && {
+                          width: markerSize + 6,
+                          height: markerSize + 6,
+                          borderRadius: (markerSize + 6) / 2,
+                          borderWidth: 4,
+                          transform: [{ scale: 1.1 }],
+                          shadowOpacity: 0.5,
+                          shadowRadius: 6,
+                          elevation: 12,
+                        }
+                      ]} />
                     </TouchableOpacity>
                   </PointAnnotation>
                 </React.Fragment>
               );
             }
           }).flat()}
-          {/* Vòng tròn bán kính */}
+          {/* Radius circle */}
         {isMapReady && showUserLocation && currentLocation && radiusCircle && (
           <ShapeSource id="radius-circle-source" shape={radiusCircle}>
             <FillLayer
@@ -507,12 +783,48 @@ export const MapView: React.FC<MapViewProps> = ({
             />
           </ShapeSource>
         )}
+        {/* Route Layer */}
+        {routeGeoJSON && (
+          <ShapeSource id="route-source" shape={routeGeoJSON}>
+            <LineLayer
+              id="route-layer"
+              style={{
+                lineColor: '#FFD700', // Dark yellow color
+                lineWidth: 5, // Increase line thickness
+                lineCap: 'round',
+                lineJoin: 'round',
+                lineOpacity: 0.9, // Add light transparency
+              }}
+            />
+          </ShapeSource>
+        )}
+
+        {/* User Location */}
+        {showUserLocation && (
+          <UserLocation
+            visible={true}
+            animated={true}
+            renderMode={UserLocationRenderMode.Normal}
+            minDisplacement={1}
+            onUpdate={location => {
+              if (location.coords) {
+                useLocationStore.setState({
+                  currentLocation: {
+                    latitude: location.coords.latitude,
+                    longitude: location.coords.longitude,
+                  }
+                });
+              }
+            }}
+            androidRenderMode="gps"
+            showsUserHeadingIndicator={true}
+          />
+        )}
       </MapboxMapView>
-      
-      {/* Info Bar */}
+        {/* Info Bar with Route Info */}
       <View style={styles.infoBar}>
         <Text style={styles.infoBarText}>
-          {postsInRadius.length} {postsInRadius.length === 1 ? 'photo' : 'photos'} within {notificationRadius}km
+          {postsInRadius.length} {postsInRadius.length === 1 ? t('map.photo') : t('map.photos')} {t('map.within')} {notificationRadius} {t('map.kilometers')}
         </Text>
         <Text style={styles.infoBarSubtext}>
           Zoom: {currentZoom.toFixed(1)} (min: {appropriateZoomLevel.toFixed(1)})
@@ -528,6 +840,86 @@ export const MapView: React.FC<MapViewProps> = ({
           <Text style={styles.refreshButtonText}>⟲</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Transport Mode Selector */}
+      {selectedDestination && (
+        <View style={styles.transportModeContainer}>
+          <TouchableOpacity
+            style={[styles.modeButton, selectedMode === 'walking' && styles.selectedMode]}
+            onPress={() => handleModeChange('walking')}
+          >
+            <MapPin size={24} color={selectedMode === 'walking' ? 'white' : colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeButton, selectedMode === 'cycling' && styles.selectedMode]}
+            onPress={() => handleModeChange('cycling')}
+          >
+            <Bike size={24} color={selectedMode === 'cycling' ? 'white' : colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeButton, selectedMode === 'driving' && styles.selectedMode]}
+            onPress={() => handleModeChange('driving')}
+          >
+            <Car size={24} color={selectedMode === 'driving' ? 'white' : colors.text} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Route Information Panel */}
+      {routeInfo && (
+        <View style={styles.routeInfoContainer}>
+          <View style={styles.routeInfoHeader}>
+            <View>
+              <Text style={styles.routeInfoTitle}>{t('map.routeToDestination')}</Text>
+              <Text style={styles.routeInfoSubtitle}>
+                {formatDistance(routeInfo.distance)} • {formatDuration(routeInfo.duration)}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={clearRoute}
+            >
+              <X size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Center on User Button */}
+      {showUserLocation && (
+        <TouchableOpacity
+          style={[
+            styles.centerButton,
+            isTrackingUser && styles.centerButtonActive
+          ]}
+          onPress={() => {
+            if (currentLocation) {
+              setIsTrackingUser(true);
+            }
+          }}
+        >
+          <Navigation2
+            size={24}
+            color={isTrackingUser ? 'white' : colors.text}
+            style={{ transform: [{ rotate: '0deg' }] }}
+          />
+        </TouchableOpacity>
+      )}
+
+      {/* PostGroupView for clusters */}
+      {selectedPostGroup.length > 0 && (
+        <PostGroupView
+          posts={selectedPostGroup}
+          onClose={handleCloseGroup}
+          onSelectPost={handleSelectPostFromGroup}
+          onFindLocation={async (post) => {
+            // Close PostGroupView first
+            setSelectedPostGroup([]);
+            // Then create route
+            await getRoute(post);
+          }}
+        />
+      )}
     </View>
   );
 };
@@ -564,11 +956,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   userLocationInner: {
-    width: 10,
-    height: 10,
-    backgroundColor: 'white',
-    borderRadius: 5,
- },
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
   selectedPostMarker: {
     backgroundColor: colors.primary,
     borderColor: 'white',
@@ -674,7 +1075,7 @@ const styles = StyleSheet.create({
   },
   refreshControl: {
     position: 'absolute',
-    bottom: 100,
+    bottom: 160,
     right: 16,
     zIndex: 10,
   },
@@ -693,23 +1094,90 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
   },
- refreshButtonText: {
+  refreshButtonText: {
     fontSize: 20,
     fontWeight: 'bold',
     color: colors.text,
     lineHeight: 20,
-  },  userLocationMarker: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 3,
-    borderColor: 'white',
+  },
+  centerButton: {
+    position: 'absolute',
+    bottom: 100,
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+  },
+  centerButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  transportModeContainer: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 8,
+    flexDirection: 'row',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modeButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'white',
+  },
+  selectedMode: {
+    backgroundColor: colors.primary,
+  },
+  routeInfoContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  routeInfoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  routeInfoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  routeInfoSubtitle: {
+    fontSize: 14,
+    color: colors.textLight,
+    marginTop: 4,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.lightGray,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

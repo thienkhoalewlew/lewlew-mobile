@@ -2,7 +2,7 @@ import { api } from './api';
 import { Comment, CreateCommentData } from '../types';
 
 class CommentService {
-  // Tạo comment mới
+  // Create comment
   async createComment(commentData: CreateCommentData): Promise<{ success: boolean; data?: Comment; error?: string }> {
     try {
       const response = await api.comments.createComment(
@@ -22,7 +22,7 @@ class CommentService {
     }
   }
 
-  // Lấy danh sách comments của một post
+  // Get comments for a post
   async getComments(postId: string): Promise<{ success: boolean; data?: Comment[]; error?: string }> {
     try {
       const response = await api.comments.getComments(postId);
@@ -38,7 +38,7 @@ class CommentService {
     }
   }
 
-  // Xóa comment
+  // Delete comment
   async deleteComment(commentId: string): Promise<{ success: boolean; error?: string }> {
     try {
       const response = await api.comments.deleteComment(commentId);
@@ -51,38 +51,6 @@ class CommentService {
     } catch (error) {
       console.error('Comment service - Delete comment error:', error);
       return { success: false, error: 'Failed to delete comment' };
-    }
-  }
-
-  // Like comment
-  async likeComment(commentId: string): Promise<{ success: boolean; data?: any; error?: string }> {
-    try {
-      const response = await api.comments.likeComment(commentId);
-
-      if (response.error) {
-        return { success: false, error: response.error };
-      }
-
-      return { success: true, data: response.data };
-    } catch (error) {
-      console.error('Comment service - Like comment error:', error);
-      return { success: false, error: 'Failed to like comment' };
-    }
-  }
-
-  // Unlike comment
-  async unlikeComment(commentId: string): Promise<{ success: boolean; data?: any; error?: string }> {
-    try {
-      const response = await api.comments.unlikeComment(commentId);
-
-      if (response.error) {
-        return { success: false, error: response.error };
-      }
-
-      return { success: true, data: response.data };
-    } catch (error) {
-      console.error('Comment service - Unlike comment error:', error);
-      return { success: false, error: 'Failed to unlike comment' };
     }
   }
 }

@@ -209,7 +209,8 @@ export const LocationInput: React.FC<LocationInputProps> = ({
   );
 
   return (
-    <View style={styles.container}>      <View style={styles.labelRow}>
+    <View style={styles.container}>
+      <View style={styles.labelRow}>
         <Text style={styles.label}>Location</Text>
         <View style={styles.actionButtons}>
           {!isEditing && (
@@ -230,7 +231,8 @@ export const LocationInput: React.FC<LocationInputProps> = ({
               >
                 <Edit3 size={14} color={colors.primary} />
                 <Text style={styles.actionButtonText}>Edit</Text>
-              </TouchableOpacity>              <TouchableOpacity 
+              </TouchableOpacity>
+              <TouchableOpacity 
                 style={[
                   styles.actionButton,
                   isRefreshing && styles.actionButtonDisabled
@@ -291,7 +293,8 @@ export const LocationInput: React.FC<LocationInputProps> = ({
           }
         ]}
       >
-        <MapPin size={20} color={colors.textLight} style={styles.locationIcon} />        {isEditing ? (
+        <MapPin size={20} color={colors.textLight} style={styles.locationIcon} />
+        {isEditing ? (
           <TextInput
             style={styles.locationInput}
             placeholder="Enter location name"
@@ -321,7 +324,8 @@ export const LocationInput: React.FC<LocationInputProps> = ({
           </Text>
         )}
         
-        {!currentLocation && (          <Text style={styles.locationError}>
+        {!currentLocation && (
+          <Text style={styles.locationError}>
             ⚠️ Getting your location...
           </Text>
         )}

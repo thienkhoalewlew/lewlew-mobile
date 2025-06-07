@@ -19,17 +19,19 @@ import { Button } from '../../components/Button';
 import { colors } from '../../constants/colors';
 import { useAuthStore } from '../../store/authStore';
 import { checkBackendConnection, getErrorMessage } from '../../utils/apiUtils';
+import { useTranslation } from '../../i18n';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { register, isLoading, error, clearError, isAuthenticated } = useAuthStore();
+  const { t } = useTranslation();
   
-  const [username, setUsername] = useState('');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
-  const [usernameError, setUsernameError] = useState('');
+  const [fullNameError, setFullNameError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
@@ -42,7 +44,7 @@ export default function RegisterScreen() {
 
   useEffect(() => {
     if (error) {
-      Alert.alert('Registration Error', getErrorMessage(error));
+      Alert.alert(t('auth.registrationError'), getErrorMessage(error));
       clearError();
     }
   }, [error]);
@@ -53,9 +55,9 @@ export default function RegisterScreen() {
       const isConnected = await checkBackendConnection();
       if (!isConnected) {
         Alert.alert(
-          'Connection Error',
-          'Cannot connect to the server. Please check your internet connection or try again later.',
-          [{ text: 'OK' }]
+          t('auth.connectionError'),
+          t('auth.connectionErrorMessage'),
+          [{ text: t('common.ok') }]
         );
       }
     };
@@ -66,23 +68,23 @@ export default function RegisterScreen() {
   const validateForm = () => {
     let isValid = true;
     
-    // Username validation
-    if (!username.trim()) {
-      setUsernameError('Username is required');
+    // Full name validation
+    if (!fullName.trim()) {
+      setFullNameError(t('auth.fullNameRequired'));
       isValid = false;
-    } else if (username.length < 3) {
-      setUsernameError('Username must be at least 3 characters');
+    } else if (fullName.length < 2) {
+      setFullNameError(t('auth.fullNameTooShort'));
       isValid = false;
     } else {
-      setUsernameError('');
+      setFullNameError('');
     }
     
     // Email validation
     if (!email.trim()) {
-      setEmailError('Email is required');
+      setEmailError(t('auth.emailRequired'));
       isValid = false;
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      setEmailError('Email is invalid');
+      setEmailError(t('auth.emailInvalid'));
       isValid = false;
     } else {
       setEmailError('');
@@ -90,10 +92,10 @@ export default function RegisterScreen() {
     
     // Password validation
     if (!password) {
-      setPasswordError('Password is required');
+      setPasswordError(t('auth.passwordRequired'));
       isValid = false;
     } else if (password.length < 8) {
-      setPasswordError('Password must be at least 8 characters');
+      setPasswordError(t('auth.passwordTooShortRegister'));
       isValid = false;
     } else {
       setPasswordError('');
@@ -101,7 +103,7 @@ export default function RegisterScreen() {
     
     // Confirm password validation
     if (password !== confirmPassword) {
-      setConfirmPasswordError('Passwords do not match');
+      setConfirmPasswordError(t('auth.passwordsNotMatch'));
       isValid = false;
     } else {
       setConfirmPasswordError('');
@@ -117,16 +119,16 @@ export default function RegisterScreen() {
         const isConnected = await checkBackendConnection();
         if (!isConnected) {
           Alert.alert(
-            'Connection Error',
-            'Cannot connect to the server. Please check your internet connection or try again later.'
+            t('auth.connectionError'),
+            t('auth.connectionErrorMessage')
           );
           return;
         }
         
-        // Sử dụng username như là fullName cho backend
-        await register(username, email, password);
+        // Sử dụng fullName cho backend
+        await register(fullName, email, password);
       } catch (err) {
-        Alert.alert('Registration Error', getErrorMessage(err));
+        Alert.alert(t('auth.registrationError'), getErrorMessage(err));
       }
     }
   };
@@ -147,24 +149,24 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Sign up to get started</Text>
+            <Text style={styles.title}>{t('register.createAccount')}</Text>
+            <Text style={styles.subtitle}>{t('register.signUpToGetStarted')}</Text>
           </View>
           
           <View style={styles.form}>
             <Input
-              label="Username"
-              placeholder="Choose a username"
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              error={usernameError}
+              label={t('register.fullName')}
+              placeholder={t('register.enterYourFullName')}
+              value={fullName}
+              onChangeText={setFullName}
+              autoCapitalize="words"
+              error={fullNameError}
               leftIcon={<User size={20} color={colors.textLight} />}
             />
             
             <Input
-              label="Email"
-              placeholder="Enter your email"
+              label={t('register.email')}
+              placeholder={t('register.enterYourEmail')}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -174,8 +176,8 @@ export default function RegisterScreen() {
             />
             
             <Input
-              label="Password"
-              placeholder="Create a password"
+              label={t('register.password')}
+              placeholder={t('register.createAPassword')}
               value={password}
               onChangeText={setPassword}
               isPassword
@@ -184,8 +186,8 @@ export default function RegisterScreen() {
             />
             
             <Input
-              label="Confirm Password"
-              placeholder="Confirm your password"
+              label={t('register.confirmPassword')}
+              placeholder={t('register.confirmYourPassword')}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               isPassword
@@ -194,7 +196,7 @@ export default function RegisterScreen() {
             />
             
             <Button
-              title="Sign Up"
+              title={t('register.signUp')}
               onPress={handleRegister}
               isLoading={isLoading}
               style={styles.registerButton}
@@ -202,9 +204,9 @@ export default function RegisterScreen() {
           </View>
           
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account?</Text>
+            <Text style={styles.footerText}>{t('register.alreadyHaveAnAccount')}</Text>
             <TouchableOpacity onPress={handleLogin}>
-              <Text style={styles.loginText}>Sign In</Text>
+              <Text style={styles.loginText}>{t('register.signIn')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

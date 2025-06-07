@@ -25,12 +25,14 @@ import { useAuthStore } from '../../store/authStore';
 import { useReverseGeocoding } from '../../hooks/useReverseGeocoding';
 import { LocationHistoryService } from '../../services/locationHistoryService';
 import { colors } from '../../constants/colors';
+import { useTranslation } from '../../i18n';
 
 export default function CreatePostScreen() {
   const router = useRouter();
   const { createPost, isLoading } = usePostStore();
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   
   const [image, setImage] = useState<string | null>(null);
   const [caption, setCaption] = useState('');
@@ -69,9 +71,8 @@ export default function CreatePostScreen() {
   
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera permission is required to take photos');
+      if (status !== 'granted') {
+      Alert.alert(t('posts.permissionNeeded'), t('posts.cameraPermissionRequired'));
       return;
     }
     
@@ -94,28 +95,27 @@ export default function CreatePostScreen() {
     if (isLoading) {
       return;
     }
-
     if (!user) {
-      Alert.alert('Error', 'You must be logged in to create a post');
+      Alert.alert(t('common.error'), t('posts.mustBeLoggedIn'));
       return;
     }
     
     if (!image) {
-      Alert.alert('Missing image', 'Please select or take a photo');
+      Alert.alert(t('posts.missingImage'), t('posts.pleaseSelectPhoto'));
       return;
     }
     
     if (!caption.trim()) {
-      Alert.alert('Missing caption', 'Please add a caption to your post');
+      Alert.alert(t('posts.missingCaption'), t('posts.pleaseAddCaption'));
       return;
     }
     
     if (!locationName.trim()) {
-      Alert.alert('Missing location', 'Please add a location name');
+      Alert.alert(t('posts.missingLocation'), t('posts.pleaseAddLocation'));
       return;
     }
       if (!currentLocation) {
-      Alert.alert('Location unavailable', 'Unable to get your current location');
+      Alert.alert(t('posts.locationUnavailable'), t('posts.unableToGetLocation'));
       return;
     }
 
@@ -130,10 +130,8 @@ export default function CreatePostScreen() {
           name: locationName,
         },
       });
-
-      // Check if post creation was successful
       if (!result) {
-        Alert.alert('Error', 'Failed to create post. Please try again.');
+        Alert.alert(t('common.error'), t('posts.createPostError'));
         return;
       }
 
@@ -149,20 +147,19 @@ export default function CreatePostScreen() {
       setImage(null);
       setCaption('');
       setLocationNameInput('');
-
-      Alert.alert('Success', 'Your post has been created successfully!');
+      Alert.alert(t('common.success'), t('posts.createPostSuccess'));
 
       // Navigate to home
       router.push('/(tabs)');
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to create post');
+      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('posts.createPostError'));
     }
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+  <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Create</Text>
+        <Text style={styles.title}>{t('posts.create')}</Text>
       </View>
       
       <KeyboardAvoidingView
@@ -170,7 +167,7 @@ export default function CreatePostScreen() {
         style={styles.keyboardAvoidingView}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.subtitle}>Create New Post</Text>
+          <Text style={styles.subtitle}>{t('posts.createNewPost')}</Text>
           
           {image ? (
             <View style={styles.imageContainer}>
@@ -189,7 +186,7 @@ export default function CreatePostScreen() {
                 onPress={pickImage}
               >
                 <ImageIcon size={32} color={colors.primary} />
-                <Text style={styles.imagePickerText}>Choose from gallery</Text>
+                <Text style={styles.imagePickerText}>{t('posts.chooseFromGallery')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -197,22 +194,22 @@ export default function CreatePostScreen() {
                 onPress={takePhoto}
               >
                 <Camera size={32} color={colors.primary} />
-                <Text style={styles.imagePickerText}>Take a photo</Text>
+                <Text style={styles.imagePickerText}>{t('posts.takeAPhoto')}</Text>
               </TouchableOpacity>
             </View>
           )}
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Caption</Text>
+            <View style={styles.formGroup}>
+            <Text style={styles.label}>{t('posts.caption')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Write a caption..."
+              placeholder={t('posts.writeCaptionPlaceholder')}
               value={caption}
               onChangeText={setCaption}
               multiline
               maxLength={500}
             />
-          </View>          <LocationInput
+          </View>
+          <LocationInput
             currentLocation={currentLocation}
             currentLocationName={autoDetectedLocationName}
             locationName={locationName}
@@ -220,9 +217,8 @@ export default function CreatePostScreen() {
             onRefreshLocation={refreshLocation}
             isLoading={isLoadingLocation}
           />
-          
-          <Button
-            title="Share Post"
+            <Button
+            title={t('posts.sharePost')}
             onPress={handleCreatePost}
             isLoading={isLoading}
             disabled={!image || !caption.trim() || !locationName.trim() || !currentLocation}

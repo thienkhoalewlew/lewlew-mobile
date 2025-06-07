@@ -118,20 +118,31 @@ export const createPost = async (postData: any) => {
  */
 export const mapBackendPostToAppPost = (backendPost: any): Post => {
   let userId = backendPost.userId;
+  let user = undefined;
   
   if (backendPost.user) {
     if (typeof backendPost.user === 'object' && backendPost.user !== null) {
       userId = backendPost.user._id;
+      user = {
+        _id: backendPost.user._id,
+        fullname: backendPost.user.fullName || backendPost.user.fullname || backendPost.user.username || 'Unknown User',
+        username: backendPost.user.username,
+        avatar: backendPost.user.avatar,
+        bio: backendPost.user.bio || ''
+      };
     } else {
       userId = backendPost.user;
     }
   }
   
   console.log('Mapping post:', backendPost._id, 'userId:', userId);
+  console.log('Backend user:', backendPost.user); // Add debug log for backend data
+  console.log('Mapped user:', user); // Add debug log for mapped data
   
   return {
     id: backendPost._id || backendPost.id,
     userId: userId,
+    user: user,
     imageUrl: backendPost.imageUrl || backendPost.image,
     caption: backendPost.caption || '',
     location: {
@@ -154,9 +165,9 @@ export const ensureStringId = (id: any): string => {
   return String(id);
 };
 
-export const getUserPosts = async (): Promise<Post[]> => {
+export const getUserPosts = async (includeExpired: boolean = true): Promise<Post[]> => {
   try {
-    const response = await api.posts.getMyPosts();
+    const response = await api.posts.getMyPosts(includeExpired);
     
     if (response.data && Array.isArray(response.data.posts)) {
       return response.data.posts.map(mapBackendPostToAppPost);
@@ -258,5 +269,42 @@ export const deletePostById = async (postId: string): Promise<{ success: boolean
       success: false,
       error: 'Unable to delete post. Please try again later.'
     };
+  }
+};
+
+/**
+ * Lấy bài viết theo ID
+ * @param postId ID của bài viết cần lấy
+ * @returns Promise với bài viết hoặc null nếu không tìm thấy
+ */
+export const getPostById = async (postId: string): Promise<Post | null> => {
+  try {
+    console.log('🔍 getPostById - Starting API call for post ID:', postId);
+    const response = await api.posts.getPostById(postId);
+    
+    console.log('🔍 getPostById - API response received:', 
+      response.error ? `Error: ${response.error}` : 'Success');
+    console.log('🔍 getPostById - Response data exists:', !!response.data);
+    
+    // Kiểm tra lỗi bài viết hết hạn
+    if (response.error && response.error.includes('expired')) {
+      console.log('🔍 getPostById - Post has expired (older than 24 hours)');
+      throw new Error('Post has expired (older than 24 hours)');
+    }
+    
+    if (response.data) {
+      console.log('🔍 getPostById - Post data received:', {
+        id: response.data.id,
+        userId: response.data.userId || response.data.user,
+        caption: response.data.caption
+      });
+      return mapBackendPostToAppPost(response.data);
+    }
+    
+    console.log('🔍 getPostById - Post not found or invalid response format');
+    return null;
+  } catch (error) {
+    console.error('🔍 getPostById - Error fetching post by ID:', error);
+    throw error; // Ném lỗi để xử lý ở lớp cao hơn
   }
 };

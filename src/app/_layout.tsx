@@ -1,10 +1,13 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useFonts } from "expo-font";
-import { Slot } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
+import { Slot, SplashScreen } from "expo-router";
 import { useEffect } from "react";
+import { View, ActivityIndicator } from "react-native";
 import { ErrorBoundary } from "./error-boundary";
 import { NotificationProvider } from "../providers/NotificationProvider";
+import { useAuthStore } from "../store/authStore";
+import { colors } from "../constants/colors";
+import { LanguageProvider } from "../i18n";
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
@@ -19,28 +22,37 @@ export default function RootLayout() {
     ...FontAwesome.font,
   });
 
+  const { isInitialized, initialize } = useAuthStore();
+
   useEffect(() => {
-    if (error) {
-      console.error(error);
-      throw error;
-    }
+    if (error) throw error;
   }, [error]);
 
   useEffect(() => {
-    if (loaded) {
+    // Initialize auth state
+    initialize();
+  }, []);
+
+  useEffect(() => {
+    if (loaded && isInitialized) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [loaded, isInitialized]);
 
-  if (!loaded) {
-    return null;
+  if (!loaded || !isInitialized) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
   }
-
   return (
     <ErrorBoundary>
-      <NotificationProvider>
-        <Slot />
-      </NotificationProvider>
+      <LanguageProvider>
+        <NotificationProvider>
+          <Slot />
+        </NotificationProvider>
+      </LanguageProvider>
     </ErrorBoundary>
   );
 }

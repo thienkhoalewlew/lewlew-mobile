@@ -8,6 +8,8 @@ LogBox.ignoreLogs([
   'EventEmitter.removeListener',
   'Sending `onAnimationStart` with no listeners registered',
   'Sending `onAnimationEnd` with no listeners registered',
+  '`new NativeEventEmitter()` was called with a non-null argument without the required `addListener` method',
+  '`new NativeEventEmitter()` was called with a non-null argument without the required `removeListeners` method',
 ]);
 
 export default function App() {
@@ -18,7 +20,6 @@ export default function App() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

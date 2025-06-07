@@ -10,6 +10,7 @@ import {
 import { useCommentStore } from '../../store/commentStore';
 import { CommentItem } from './CommentItem';
 import { Comment } from '../../types';
+import { useTranslation } from '../../i18n';
 
 interface CommentListProps {
   postId: string;
@@ -28,7 +29,8 @@ export const CommentList: React.FC<CommentListProps> = ({
     error, 
     getComments, 
     clearError 
-  } = useCommentStore();  const postComments = comments[postId] || [];
+  } = useCommentStore();
+  const { t } = useTranslation();const postComments = comments[postId] || [];
   
   // Show comments in reverse chronological order (newest first)
   const sortedComments = [...postComments].sort((a, b) => 
@@ -59,29 +61,28 @@ export const CommentList: React.FC<CommentListProps> = ({
   const renderComment = ({ item }: { item: Comment }) => (
     <CommentItem comment={item} postId={postId} />
   );
-
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyText}>No comments yet</Text>
-      <Text style={styles.emptySubtext}>Be the first to comment!</Text>
+      <Text style={styles.emptyText}>{t('posts.noComments')}</Text>
+      <Text style={styles.emptySubtext}>{t('posts.firstComment')}</Text>
     </View>
   );
 
   const renderError = () => (
     <View style={styles.errorState}>
-      <Text style={styles.errorText}>Failed to load comments</Text>
+      <Text style={styles.errorText}>{t('posts.failedLoadComments')}</Text>
       <Text style={styles.errorSubtext}>{error}</Text>
     </View>
   );
-
   if (loading && postComments.length === 0) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading comments...</Text>
+        <Text style={styles.loadingText}>{t('posts.loadingComments')}</Text>
       </View>
     );
-  }  return (
+  }
+  return (
     <View style={[styles.container, maxItems ? styles.previewContainer : null]}>
       <FlatList
         data={displayComments}

@@ -10,6 +10,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Notification } from '../types';
 import { colors } from '../constants/colors';
+import { useTranslation } from '../i18n';
+import { useNotificationMessageTranslation } from '../utils/notificationUtils';
 
 interface NotificationPopupProps {
   notification: Notification | null;
@@ -29,6 +31,8 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-100)).current;
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { t } = useTranslation();
+  const { translateMessage } = useNotificationMessageTranslation();
 
   useEffect(() => {
     if (notification) {
@@ -91,7 +95,8 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
         style={styles.content}
         activeOpacity={0.8}
         onPress={handlePress}
-      >        <View style={styles.avatarContainer}>
+      >
+        <View style={styles.avatarContainer}>
           {senderAvatar ? (
             <Image 
               source={{ uri: senderAvatar }} 
@@ -105,12 +110,13 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
             </View>
           )}
         </View>
-        <View style={styles.textContainer}>          <Text style={styles.title}>
-            {notification.type === 'FRIEND_POST' ? 'Bài viết mới' : 'Thông báo mới'}
+        <View style={styles.textContainer}>
+          <Text style={styles.title}>
+            {notification.type === 'FRIEND_POST' ? t('notifications.newPost') : t('notifications.newNotification')}
           </Text>
           <Text style={styles.message} numberOfLines={2}>
-            <Text style={styles.senderName}>{senderName || 'Someone'}</Text>
-            <Text>{' '}{notification.message}</Text>
+            <Text style={styles.senderName}>{senderName || t('notifications.someone')}</Text>
+            <Text>{' '}{translateMessage(notification.message)}</Text>
           </Text>
         </View>
       </TouchableOpacity>

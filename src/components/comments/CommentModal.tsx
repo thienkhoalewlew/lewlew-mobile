@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CommentList } from './CommentList';
 import { CreateComment } from './CreateComment';
 import { useCommentStore } from '../../store/commentStore';
+import { useTranslation } from '../../i18n';
 
 interface CommentModalProps {
   visible: boolean;
@@ -26,6 +27,7 @@ export const CommentModal: React.FC<CommentModalProps> = ({
   onClose 
 }) => {
   const { comments, getComments } = useCommentStore();
+  const { t } = useTranslation();
   const commentCount = comments[postId]?.length || 0;
   
   useEffect(() => {
@@ -49,12 +51,13 @@ export const CommentModal: React.FC<CommentModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>
-              Comments {commentCount > 0 && `(${commentCount})`}
+              {t('posts.commentsTitle')} {commentCount > 0 && `(${commentCount})`}
             </Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color="#333" />
             </TouchableOpacity>
-          </View>          {/* Comment List */}
+          </View>
+          {/* Comment List */}
           <View style={styles.content}>
             <CommentList postId={postId} showCreateComment={false} />
           </View>

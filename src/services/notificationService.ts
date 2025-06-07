@@ -37,7 +37,45 @@ import { api } from "./api";
     } else {
         senderId = backendNotification.senderId || backendNotification.sender || '';
     }
-      // Map backend notification types to client enum types
+
+    // Xử lý đặc biệt cho postId để đảm bảo nó là một chuỗi
+    let postId = '';
+    if (backendNotification.postId) {
+        if (typeof backendNotification.postId === 'object') {
+            // Nếu postId là một đối tượng, lấy id hoặc _id của nó
+            postId = backendNotification.postId.id || backendNotification.postId._id || '';
+            console.log('Converted postId from object to string:', postId);
+        } else {
+            // Nếu đã là chuỗi, sử dụng trực tiếp
+            postId = String(backendNotification.postId);
+        }
+    } else if (backendNotification.post) {
+        // Trường hợp sử dụng trường 'post' thay vì 'postId'
+        if (typeof backendNotification.post === 'object') {
+            postId = backendNotification.post.id || backendNotification.post._id || '';
+            console.log('Converted post object to postId string:', postId);
+        } else {
+            postId = String(backendNotification.post);
+        }
+    }
+
+    // Tương tự xử lý cho commentId
+    let commentId = '';
+    if (backendNotification.commentId) {
+        if (typeof backendNotification.commentId === 'object') {
+            commentId = backendNotification.commentId.id || backendNotification.commentId._id || '';
+        } else {
+            commentId = String(backendNotification.commentId);
+        }
+    } else if (backendNotification.comment) {
+        if (typeof backendNotification.comment === 'object') {
+            commentId = backendNotification.comment.id || backendNotification.comment._id || '';
+        } else {
+            commentId = String(backendNotification.comment);
+        }
+    }
+      
+    // Map backend notification types to client enum types
     let notificationType;
     switch (backendNotification.type) {
         case 'friend_request':
@@ -69,8 +107,8 @@ import { api } from "./api";
         type: notificationType as any,
         message: backendNotification.message || '',
         read: !!backendNotification.read,
-        postId: backendNotification.postId || backendNotification.post,
-        commentId: backendNotification.commentId || backendNotification.comment,
+        postId: postId,
+        commentId: commentId,
         createdAt: backendNotification.createdAt ? new Date(backendNotification.createdAt) : new Date(),
     };
 };

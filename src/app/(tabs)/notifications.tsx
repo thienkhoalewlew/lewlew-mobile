@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   ActivityIndicator,
   RefreshControl,
-  Image
+  Image,
+  Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,11 +21,16 @@ import { Notification, NotificationType } from '../../types';
 import { colors } from '../../constants/colors';
 import { getUserById } from '@/src/services/userService';
 import { useNotificationContext } from '../../providers/NotificationProvider';
+import { isPostExpired } from '../../utils/timeUtils';
+import { useTranslation } from '../../i18n';
+import { useNotificationMessageTranslation } from '../../utils/notificationUtils';
 
 export default function NotificationsScreen() {
   const { showNotification } = useNotificationContext();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t, language } = useTranslation();
+  const { translateMessage } = useNotificationMessageTranslation();
   const { 
     notifications, 
     isLoading, 
@@ -120,43 +126,119 @@ export default function NotificationsScreen() {
       await markAsRead(notification.id);
     }
     
-    // Điều hướng dựa trên loại thông báo
-    switch (notification.type) {
-      case NotificationType.FRIEND_REQUEST:
-        router.push('/friends');
-        break;
-      case NotificationType.FRIEND_ACCEPTED:
-        router.push(`/profile/${notification.senderId}`);
-        break;
-      case NotificationType.POST_LIKE:
-      case NotificationType.POST_COMMENT:
-        if (notification.postId) {
-          router.push(`/post/${notification.postId}`);
+    try {
+      // Kiểm tra và đảm bảo postId là một chuỗi hợp lệ (không phải đối tượng)
+      let validPostId = notification.postId;
+      if (notification.postId) {
+        // Kiểm tra xem postId có phải là một đối tượng không
+        if (typeof notification.postId === 'object') {
+          console.error('Invalid postId format (object):', notification.postId);
+          // Cố gắng lấy ID từ đối tượng nếu có thể
+          const postIdObj = notification.postId as any;
+          validPostId = postIdObj.id || postIdObj._id || '';
+          console.log('Converted postId to string:', validPostId);
+        } else if (typeof notification.postId === 'string' && notification.postId.includes('[object Object]')) {
+          console.error('PostId contains [object Object]:', notification.postId);
+          Alert.alert(t('notifications.notification'), t('notifications.invalidPostId'));
+          return;
+        } else {
+          // Đảm bảo validPostId là chuỗi
+          validPostId = String(notification.postId);
         }
-        break;
-      case NotificationType.POST_VIRAL:
-      case NotificationType.FRIEND_POST:
-        if (notification.postId) {
-          router.push(`/post/${notification.postId}`);
-        }
-        break;
+      }
+      
+      // Đảm bảo commentId cũng là một chuỗi hợp lệ
+      let validCommentId = notification.commentId;
+      if (typeof notification.commentId === 'object') {
+        const commentIdObj = notification.commentId as any;
+        validCommentId = commentIdObj.id || commentIdObj._id || '';
+      } else if (notification.commentId) {
+        validCommentId = String(notification.commentId);
+      }
+      
+      // Kiểm tra thời gian tạo thông báo (kiểm tra bài viết quá 24h)
+      if (notification.createdAt && isPostExpired(notification.createdAt) && 
+          (notification.type === NotificationType.POST_LIKE || 
+           notification.type === NotificationType.POST_COMMENT || 
+           notification.type === NotificationType.POST_VIRAL || 
+           notification.type === NotificationType.FRIEND_POST)) {
+            Alert.alert(t('notifications.notification'), t('notifications.postExpired'));
+        return;
+      }
+      
+      // Điều hướng dựa trên loại thông báo
+      switch (notification.type) {
+        case NotificationType.FRIEND_REQUEST:
+          // Mở profile người gửi lời mời kết bạn thay vì chuyển đến trang friends
+          router.push({
+            pathname: '/profile/[id]',
+            params: { id: notification.senderId }
+          });
+          break;
+        case NotificationType.FRIEND_ACCEPTED:
+          router.push({
+            pathname: '/profile/[id]',
+            params: { id: notification.senderId }
+          });
+          break;
+          case NotificationType.POST_LIKE:
+          if (validPostId) {
+            console.log('Navigating to post with ID:', validPostId);
+            router.push({
+              pathname: '/post/[id]',
+              params: { id: validPostId }
+            });
+          } else {
+            Alert.alert(t('notifications.notification'), t('notifications.cannotOpenPost'));
+          }
+          break;
+        case NotificationType.POST_COMMENT:
+          if (validPostId) {
+            console.log('Navigating to post with ID:', validPostId, 'and comment:', validCommentId);
+            // Chuyển đến bài đăng và truyền commentId để có thể scroll đến comment đó
+            router.push({
+              pathname: '/post/[id]',
+              params: { 
+                id: validPostId,
+                highlightCommentId: validCommentId 
+              }
+            });
+          } else {
+            Alert.alert(t('notifications.notification'), t('notifications.cannotOpenPost'));
+          }
+          break;
+        case NotificationType.POST_VIRAL:
+        case NotificationType.FRIEND_POST:
+          if (validPostId) {
+            console.log('Navigating to post with ID:', validPostId);
+            router.push({
+              pathname: '/post/[id]',
+              params: { id: validPostId }
+            });
+          } else {
+            Alert.alert(t('notifications.notification'), t('notifications.cannotOpenPost'));
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('Error navigating from notification:', error);
+      Alert.alert(t('notifications.notification'), t('notifications.errorOpeningNotification'));
     }
   };
-  
-  // Định dạng thời gian
+    // Định dạng thời gian
   const formatTime = (date: Date) => {
     const now = new Date();
     const diffInHours = Math.abs(now.getTime() - date.getTime()) / 36e5;
     
     if (diffInHours < 24) {
       // Hiển thị giờ nếu trong vòng 24h
-      return format(date, 'HH:mm', { locale: vi });
+      return format(date, 'HH:mm', { locale: language === 'vi' ? vi : undefined });
     } else if (diffInHours < 48) {
-      // Hiển thị "hôm qua" nếu trong vòng 48h
-      return 'Yesterday';
+      // Show "yesterday" if within 48h
+      return t('notifications.yesterday');
     } else {
       // Hiển thị ngày tháng nếu hơn 48h
-      return format(date, 'dd/MM/yyyy', { locale: vi });
+      return format(date, 'dd/MM/yyyy', { locale: language === 'vi' ? vi : undefined });
     }
   };
   
@@ -189,30 +271,30 @@ export default function NotificationsScreen() {
           <Text style={styles.username}>
             {item.senderId && userData[item.senderId]?.username || 
             item.senderId && userData[item.senderId]?.fullname || 
-            'Someone'}
+            t('notifications.someone')}
           </Text>
-          <Text>{' '}{item.message}</Text>
+          <Text>{' '}{translateMessage(item.message)}</Text>
         </Text>
         <Text style={styles.time}>{formatTime(new Date(item.createdAt))}</Text>
       </View>
     </TouchableOpacity>
   );
-  
-  const renderEmptyState = () => (
+    const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyText}>No notification yet</Text>
+      <Text style={styles.emptyText}>{t('notifications.noNotifications')}</Text>
     </View>
   );
   
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>      <View style={styles.header}>
-        <Text style={styles.title}>Notification</Text>
+  <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
+        <Text style={styles.title}>{t('notifications.notifications')}</Text>
         {notifications.length > 0 && (
           <TouchableOpacity onPress={async () => {
             console.log('Mark all as read button pressed');
             await markAllAsRead();
           }}>
-            <Text style={styles.markAllText}>Mark all as read</Text>
+            <Text style={styles.markAllText}>{t('notifications.markAllAsRead')}</Text>
           </TouchableOpacity>
         )}
       </View>

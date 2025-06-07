@@ -14,6 +14,7 @@ export interface User {
     notificationRadius: number; // Bán kính thông báo (km)
     pushNotifications: boolean;
     emailNotifications: boolean;
+    language: 'en' | 'vi'; // Ngôn ngữ
   };
   location?: {
     type: string;
@@ -34,21 +35,22 @@ export interface Post {
   likes: string[];
   comments: Comment[];
   createdAt: Date;
+  expiresAt?: Date;
+  user?: {
+    _id: string;
+    fullname: string;
+    username?: string;
+    avatar?: string;
+    bio?: string;
+  };
 }
 
 export interface Comment {
   id: string;
-  post: string;
-  user: {
-    id: string;
-    fullName: string;
-    email: string;
-    avatar?: string;
-  };
-  text?: string;
+  postId: string;
+  user: User;
+  text: string;
   image?: string;
-  likes: string[];
-  likeCount: number;
   createdAt: string;
 }
 
@@ -65,8 +67,6 @@ export interface CommentState {
   createComment: (commentData: CreateCommentData) => Promise<boolean>;
   getComments: (postId: string) => Promise<void>;
   deleteComment: (commentId: string, postId: string) => Promise<boolean>;
-  likeComment: (commentId: string, postId: string) => Promise<boolean>;
-  unlikeComment: (commentId: string, postId: string) => Promise<boolean>;
   clearComments: (postId: string) => void;
   clearError: () => void;
 }
@@ -84,6 +84,8 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  isInitialized: boolean;
+  initialize: () => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -102,7 +104,8 @@ export interface PostState {
   deletePost: (postId: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   getNearbyPosts: (region: Region) => Promise<Post[]>;
   getFriendPosts: () => Promise<Post[]>;
-  getUserPosts: () => Promise<Post[]>;
+  getUserPosts: (includeExpired?: boolean) => Promise<Post[]>;
+  getPostById: (postId: string) => Promise<Post | null>;
 }
 
 export interface LocationState {

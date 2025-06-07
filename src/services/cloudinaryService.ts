@@ -1,7 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
-import { CLOUDINARY_CONFIG } from '../config/cloudinary';
-import { cloudinary } from '../config/cloudinary';
+import { CLOUDINARY_CONFIG } from '../config/env';
 
 /**
  * Chọn hình ảnh từ thư viện thiết bị
@@ -70,16 +68,15 @@ export const uploadImageToCloudinary = async (uri: string, folder: string): Prom
       type: mimeType,
       name: fileName
     };
-    
-    // Tạo FormData cho request
+      // Tạo FormData cho request
     const formData = new FormData();
     // @ts-ignore
     formData.append('file', source);
-    formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
+    formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
     formData.append('folder', folder);
 
     // Gửi yêu cầu tải lên
-    const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/upload`, {
+    const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/upload`, {
       method: 'POST',
       body: formData,
       headers: {
@@ -105,7 +102,7 @@ export const uploadImageToCloudinary = async (uri: string, folder: string): Prom
 export const uploadUserAvatar = async (localUri: string, userId: string): Promise<string | null> => {
   try {
     // Tải hình ảnh lên Cloudinary
-    const cloudinaryUrl = await uploadImageToCloudinary(localUri, `${CLOUDINARY_CONFIG.folder}/${userId}`);
+    const cloudinaryUrl = await uploadImageToCloudinary(localUri, `${CLOUDINARY_CONFIG.FOLDER}/${userId}`);
     
     if (cloudinaryUrl) {
       return cloudinaryUrl;
@@ -122,7 +119,7 @@ export const uploadUserAvatar = async (localUri: string, userId: string): Promis
 export const uploadPostImage = async (localUri: string): Promise<string | null> => {
   try {
     // Tải hình ảnh lên Cloudinary
-    const cloudinaryUrl = await uploadImageToCloudinary(localUri, `${CLOUDINARY_CONFIG.folder}/post`);
+    const cloudinaryUrl = await uploadImageToCloudinary(localUri, `${CLOUDINARY_CONFIG.FOLDER}/post`);
     
     if (cloudinaryUrl) {
       return cloudinaryUrl;

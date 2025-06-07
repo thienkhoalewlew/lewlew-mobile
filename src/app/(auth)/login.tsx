@@ -20,10 +20,12 @@ import { Button } from '../../components/Button';
 import { colors } from '../../constants/colors';
 import { useAuthStore } from '../../store/authStore';
 import { checkBackendConnection, getErrorMessage } from '../../utils/apiUtils';
+import { useTranslation } from '../../i18n';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login, isLoading, error, clearError, isAuthenticated } = useAuthStore();
+  const { t } = useTranslation();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,7 +40,7 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (error) {
-      Alert.alert('Login Error', getErrorMessage(error));
+      Alert.alert(t('auth.loginError'), getErrorMessage(error));
       clearError();
     }
   }, [error]);
@@ -49,9 +51,9 @@ export default function LoginScreen() {
       const isConnected = await checkBackendConnection();
       if (!isConnected) {
         Alert.alert(
-          'Connection Error',
-          'Cannot connect to the server. Please check your internet connection or try again later.',
-          [{ text: 'OK' }]
+          t('auth.connectionError'),
+          t('auth.connectionErrorMessage'),
+          [{ text: t('common.ok') }]
         );
       }
     };
@@ -64,10 +66,10 @@ export default function LoginScreen() {
     
     // Email validation
     if (!email.trim()) {
-      setEmailError('Email is required');
+      setEmailError(t('auth.emailRequired'));
       isValid = false;
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      setEmailError('Email is invalid');
+      setEmailError(t('auth.emailInvalid'));
       isValid = false;
     } else {
       setEmailError('');
@@ -75,10 +77,10 @@ export default function LoginScreen() {
     
     // Password validation
     if (!password) {
-      setPasswordError('Password is required');
+      setPasswordError(t('auth.passwordRequired'));
       isValid = false;
     } else if (password.length < 6) {
-      setPasswordError('Password must be at least 6 characters');
+      setPasswordError(t('auth.passwordTooShort'));
       isValid = false;
     } else {
       setPasswordError('');
@@ -94,15 +96,15 @@ export default function LoginScreen() {
         const isConnected = await checkBackendConnection();
         if (!isConnected) {
           Alert.alert(
-            'Connection Error',
-            'Cannot connect to the server. Please check your internet connection or try again later.'
+            t('auth.connectionError'),
+            t('auth.connectionErrorMessage')
           );
           return;
         }
         
         await login(email, password);
       } catch (err) {
-        Alert.alert('Login Error', getErrorMessage(err));
+        Alert.alert(t('auth.loginError'), getErrorMessage(err));
       }
     }
   };
@@ -123,14 +125,14 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Sign in to continue</Text>
+            <Text style={styles.title}>{t('auth.welcomeBack')}</Text>
+            <Text style={styles.subtitle}>{t('auth.signInToContinue')}</Text>
           </View>
           
           <View style={styles.form}>
             <Input
-              label="Email"
-              placeholder="Enter your email"
+              label={t('auth.email')}
+              placeholder={t('auth.enterEmail')}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -140,8 +142,8 @@ export default function LoginScreen() {
             />
             
             <Input
-              label="Password"
-              placeholder="Enter your password"
+              label={t('auth.password')}
+              placeholder={t('auth.enterPassword')}
               value={password}
               onChangeText={setPassword}
               isPassword
@@ -150,11 +152,11 @@ export default function LoginScreen() {
             />
             
             <TouchableOpacity style={styles.forgotPassword}>
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              <Text style={styles.forgotPasswordText}>{t('auth.forgotPassword')}</Text>
             </TouchableOpacity>
             
             <Button
-              title="Sign In"
+              title={t('auth.signIn')}
               onPress={handleLogin}
               isLoading={isLoading}
               style={styles.loginButton}
@@ -162,9 +164,9 @@ export default function LoginScreen() {
           </View>
           
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account?</Text>
+            <Text style={styles.footerText}>{t('auth.dontHaveAccount')}</Text>
             <TouchableOpacity onPress={handleRegister}>
-              <Text style={styles.registerText}>Sign Up</Text>
+              <Text style={styles.registerText}>{t('auth.signUp')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

@@ -3,7 +3,7 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  Image, 
+  Image,
   TouchableOpacity, 
   FlatList,
   ScrollView
@@ -11,28 +11,27 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowLeft, Grid, Map, UserPlus, UserMinus } from 'lucide-react-native';
+import { ChevronLeft, UserPlus, UserMinus } from 'lucide-react-native';
 
 import { useAuthStore } from '../../store/authStore';
 import { usePostStore } from '../../store/postStore';
 import { colors } from '../../constants/colors';
 import { getUserProfileById, sendFriendRequest, unfriendUser } from '../../services/userService';
+import { getUserPosts } from '../../services/postService';
 import { Post, User } from '../../types';
-import { MapView } from '../../components/MapView';
-import { PostGroupView } from '../../components/PostGroupView';
+import { useTranslation } from '../../i18n';
 
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { user } = useAuthStore();
   const { posts } = usePostStore();
+  const { t } = useTranslation();
   
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
-  const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   const [friendStatus, setFriendStatus] = useState<'none' | 'pending' | 'accepted' | 'rejected'>('none');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedPostGroup, setSelectedPostGroup] = useState<Post[]>([]);
   
   useEffect(() => {
     const fetchProfileUser = async () => {
@@ -45,17 +44,31 @@ export default function UserProfileScreen() {
       if (userProfile?.status) {
         setFriendStatus(userProfile.status);
       }
+      
+      // Load active posts for this user
+      if (userProfile) {
+        await loadUserPosts(userProfile.id);
+      }
     };
     
     fetchProfileUser();
   }, [id]);
-
-  useEffect(() => {
-    if (profileUser) {
-      const filteredPosts = posts.filter(post => post.userId === profileUser.id);
-      setUserPosts(filteredPosts);
+  
+  const loadUserPosts = async (userId: string) => {
+    try {
+      setIsLoading(true);
+      
+      // For other users' profiles, only show active posts (not expired)
+      // We get posts from the global posts store which only contains active posts from others
+      const activeUserPosts = posts.filter(post => post.userId === userId);
+      setUserPosts(activeUserPosts);
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error loading posts:', error);
+      setIsLoading(false);
     }
-  }, [profileUser, posts]);
+  };
   
   const handleToggleFriend = async () => {
     if (!user || !profileUser) return;
@@ -82,15 +95,6 @@ export default function UserProfileScreen() {
   const handleViewPost = (postId: string) => {
     router.push(`/post/${postId}`);
   };
-
-  const handleCloseGroup = () => {
-    setSelectedPostGroup([]);
-  };
-
-  const handleSelectPostFromGroup = (post: Post) => {
-    setSelectedPostGroup([]);
-    handleViewPost(post.id);
-  };
   
   const renderGridItem = ({ item }: { item: Post }) => (
     <TouchableOpacity 
@@ -100,36 +104,6 @@ export default function UserProfileScreen() {
       <Image source={{ uri: item.imageUrl }} style={styles.gridImage} />
     </TouchableOpacity>
   );
-
-  const renderMapView = () => (
-    <View style={styles.mapViewContainer}>
-      <MapView
-        posts={userPosts}
-        selectedPostId={undefined}
-        onMarkerPress={(postOrGroup) => {
-          if(Array.isArray(postOrGroup)) {
-            setSelectedPostGroup(postOrGroup);
-          }
-          else {
-            handleViewPost(postOrGroup.id);
-          }
-        }}
-        showUserLocation={false}
-        user={profileUser || undefined}
-        filterByRadius={false}
-      />
-      
-      {/* Map overlay info */}
-      <View style={styles.mapOverlayInfo}>
-        <Text style={styles.mapInfoText}>
-          {userPosts.length} {userPosts.length === 1 ? 'post' : 'posts'} on map
-        </Text>
-        <Text style={styles.mapInfoSubtext}>
-          Tap markers to view posts
-        </Text>
-      </View>
-    </View>
-  );
   
   if (!profileUser) return null;
 
@@ -137,16 +111,13 @@ export default function UserProfileScreen() {
     <SafeAreaView style={styles.container} edges={['right', 'left']}>
       <StatusBar style="dark" />
       
-      <Stack.Screen 
-        options={{
-          title: profileUser.fullname ?? '',
-          headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()}>
-              <ArrowLeft size={24} color={colors.text} />
-            </TouchableOpacity>
-          ),
-        }} 
-      />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <ChevronLeft size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.title}>{profileUser.fullname ?? ''}</Text>
+        <View style={{ width: 24 }} />
+      </View>
       
       <ScrollView>
         <View style={styles.profileHeader}>
@@ -163,11 +134,11 @@ export default function UserProfileScreen() {
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{userPosts.length}</Text>
-              <Text style={styles.statLabel}>Posts</Text>
+              <Text style={styles.statLabel}>{t('profile.posts')}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{profileUser.friendCount || 0}</Text>
-              <Text style={styles.statLabel}>Friends</Text>
+              <Text style={styles.statLabel}>{t('profile.friends')}</Text>
             </View>
           </View>
           
@@ -183,14 +154,14 @@ export default function UserProfileScreen() {
               {friendStatus === 'accepted' ? (
                 <>
                   <UserMinus size={16} color="white" />
-                  <Text style={styles.friendButtonText}>Remove Friend</Text>
+                  <Text style={styles.friendButtonText}>{t('profile.removeFriend')}</Text>
                 </>
               ) : friendStatus === 'pending' ? (
-                <Text style={styles.friendButtonText}>Request Pending</Text>
+                <Text style={styles.friendButtonText}>{t('profile.requestPending')}</Text>
               ) : (
                 <>
                   <UserPlus size={16} color="white" />
-                  <Text style={styles.friendButtonText}>Add Friend</Text>
+                  <Text style={styles.friendButtonText}>{t('profile.addFriend')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -198,70 +169,26 @@ export default function UserProfileScreen() {
         </View>
         
         <View style={styles.contentHeader}>
-          <Text style={styles.contentTitle}>Photos</Text>
-          <View style={styles.viewToggle}>
-            <TouchableOpacity 
-              style={[
-                styles.viewToggleButton,
-                viewMode === 'grid' && styles.viewToggleButtonActive
-              ]}
-              onPress={() => setViewMode('grid')}
-            >
-              <Grid size={20} color={viewMode === 'grid' ? colors.primary : colors.textLight} />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[
-                styles.viewToggleButton,
-                viewMode === 'map' && styles.viewToggleButtonActive
-              ]}
-              onPress={() => setViewMode('map')}
-            >
-              <Map size={20} color={viewMode === 'map' ? colors.primary : colors.textLight} />
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.contentTitle}>{t('profile.photos')}</Text>
         </View>
         
-        {viewMode === 'grid' ? (
-          userPosts.length > 0 ? (
-            <FlatList
-              data={userPosts}
-              keyExtractor={(item) => item.id}
-              renderItem={renderGridItem}
-              numColumns={3}
-              scrollEnabled={false}
-              contentContainerStyle={styles.gridContainer}
-            />
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                No photos shared yet
-              </Text>
-            </View>
-          )
+        {userPosts.length > 0 ? (
+          <FlatList
+            data={userPosts}
+            keyExtractor={(item) => item.id}
+            renderItem={renderGridItem}
+            numColumns={3}
+            scrollEnabled={false}
+            contentContainerStyle={styles.gridContainer}
+          />
         ) : (
-          /* Map View */
-          userPosts.length > 0 ? (
-            renderMapView()
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Map size={40} color={colors.textLight} />
-              <Text style={styles.emptyTitle}>No posts to show on map</Text>
-              <Text style={styles.emptyText}>
-                No photos with location shared yet
-              </Text>
-            </View>
-          )
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              {t('profile.noPhotosSharedYet')}
+            </Text>
+          </View>
         )}
       </ScrollView>
-      
-      {/* PostGroupView for clusters */}
-      {selectedPostGroup.length > 0 && (
-        <PostGroupView
-          posts={selectedPostGroup}
-          onClose={handleCloseGroup}
-          onSelectPost={handleSelectPostFromGroup}
-        />
-      )}
     </SafeAreaView>
   );
 }
@@ -271,9 +198,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
   profileHeader: {
     alignItems: 'center',
     padding: 20,
+    marginTop: 16,
   },
   profileImage: {
     width: 100,
@@ -349,22 +290,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  viewToggle: {
-    flexDirection: 'row',
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  viewToggleButton: {
-    padding: 8,
-    width: 40,
-    alignItems: 'center',
-  },
-  viewToggleButtonActive: {
-    backgroundColor: colors.card,
-  },
   gridContainer: {
     padding: 4,
   },
@@ -377,70 +302,14 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 4,
   },
-  mapContainer: {
-    height: 300,
-    margin: 16,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mapPlaceholder: {
-    fontSize: 16,
-    color: colors.textLight,
-  },
   emptyContainer: {
     padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 8,
-    marginBottom: 4,
-  },
   emptyText: {
     fontSize: 14,
     color: colors.textLight,
     textAlign: 'center',
-  },
-  // Map View Styles
-  mapViewContainer: {
-    height: 400,
-    margin: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: colors.card,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  mapOverlayInfo: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  mapInfoText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  mapInfoSubtext: {
-    fontSize: 12,
-    color: colors.textLight,
-    marginTop: 2,
-  },
+  }
 });

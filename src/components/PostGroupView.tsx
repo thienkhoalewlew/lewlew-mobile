@@ -1,22 +1,47 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { X } from 'lucide-react-native';
+import { X, Navigation } from 'lucide-react-native';
 import { PostCard } from './PostCard';
 import { Post } from '../types';
 import { colors } from '../constants/colors';
+import { useRouter } from 'expo-router';
+import { useTranslation } from '../i18n';
 
 interface PostGroupViewProps {
   posts: Post[];
   onClose: () => void;
   onSelectPost: (post: Post) => void;
+  onFindLocation?: (post: Post) => void;
 }
 
 export const PostGroupView: React.FC<PostGroupViewProps> = ({
   posts,
   onClose,
   onSelectPost,
-}) => {
-  const locationName = posts[0]?.location?.name || 'Unknown location';
+  onFindLocation,
+}) => {  const router = useRouter();
+  const { t } = useTranslation();
+  const locationName = posts[0]?.location?.name || t('map.unknownLocation');
+  
+  const handleViewLocation = () => {
+    if (posts.length === 0) return;
+    
+    if (onFindLocation) {
+      onFindLocation(posts[0]);
+      onClose();
+    } else {
+      const firstPost = posts[0];
+      router.push({
+        pathname: '/(tabs)/map',
+        params: { 
+          postId: firstPost.id,
+          latitude: firstPost.location.latitude,
+          longitude: firstPost.location.longitude
+        }
+      });
+    }
+  };
+
   const renderPost = ({ item: post }: { item: Post }) => (
     <View style={styles.postItemContainer}>
       <TouchableOpacity
@@ -38,12 +63,26 @@ export const PostGroupView: React.FC<PostGroupViewProps> = ({
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>{locationName}</Text>
           <Text style={styles.headerSubtitle}>
-            {posts.length} {posts.length === 1 ? 'photo' : 'photos'}
+            {posts.length} {posts.length === 1 ? t('map.photo') : t('map.photos')}
           </Text>
         </View>
-        <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
-          <X size={24} color={colors.text} />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity 
+            style={styles.findLocationButton} 
+            onPress={handleViewLocation}
+            activeOpacity={0.7}
+          >
+            <Navigation size={20} color="white" />
+            <Text style={styles.findLocationText}>{t('map.findLocation')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.closeButton} 
+            onPress={onClose} 
+            activeOpacity={0.7}
+          >
+            <X size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
       
       <FlatList
@@ -85,6 +124,11 @@ const styles = StyleSheet.create({
   headerLeft: {
     flex: 1,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -99,7 +143,22 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
     backgroundColor: colors.lightGray,
-  },  listContainer: {
+  },
+  findLocationButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  findLocationText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  listContainer: {
     paddingBottom: 16,
   },
   postItemContainer: {
@@ -108,7 +167,8 @@ const styles = StyleSheet.create({
   postItem: {
     width: 280, // Fixed width for horizontal scroll
     marginBottom: 8,
-  },  separator: {
+  },
+  separator: {
     width: 12,
   },
 });

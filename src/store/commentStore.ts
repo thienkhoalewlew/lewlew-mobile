@@ -3,7 +3,6 @@ import { commentService } from '../services/commentService';
 import { Comment, CreateCommentData, CommentState } from '../types';
 
 export const useCommentStore = create<CommentState>((set, get) => ({
-  // Initial state
   comments: {},
   loading: false,
   error: null,
@@ -19,14 +18,15 @@ export const useCommentStore = create<CommentState>((set, get) => ({
         const { comments } = get();
         const postComments = comments[commentData.postId] || [];
         
+        // Add new comment to the beginning of the array
         set({
           comments: {
             ...comments,
             [commentData.postId]: [result.data, ...postComments]
-          },
-          loading: false
+          }
         });
         
+        set({ loading: false });
         return true;
       } else {
         set({ loading: false, error: result.error || 'Failed to create comment' });
@@ -46,10 +46,9 @@ export const useCommentStore = create<CommentState>((set, get) => ({
       const result = await commentService.getComments(postId);
       
       if (result.success) {
-        const { comments } = get();
         set({
           comments: {
-            ...comments,
+            ...get().comments,
             [postId]: result.data || []
           },
           loading: false
@@ -73,14 +72,15 @@ export const useCommentStore = create<CommentState>((set, get) => ({
         const { comments } = get();
         const postComments = comments[postId] || [];
         
+        // Remove comment from state
         set({
           comments: {
             ...comments,
-            [postId]: postComments.filter(comment => comment.id !== commentId)
-          },
-          loading: false
+            [postId]: postComments.filter(c => c.id !== commentId)
+          }
         });
         
+        set({ loading: false });
         return true;
       } else {
         set({ loading: false, error: result.error || 'Failed to delete comment' });
@@ -88,76 +88,6 @@ export const useCommentStore = create<CommentState>((set, get) => ({
       }
     } catch (error) {
       set({ loading: false, error: 'An unexpected error occurred' });
-      return false;
-    }
-  },
-
-  // Like comment
-  likeComment: async (commentId: string, postId: string) => {
-    try {
-      const result = await commentService.likeComment(commentId);
-      
-      if (result.success && result.data) {
-        const { comments } = get();
-        const postComments = comments[postId] || [];
-        
-        set({
-          comments: {
-            ...comments,
-            [postId]: postComments.map(comment =>
-              comment.id === commentId
-                ? { 
-                    ...comment, 
-                    likes: result.data.likes, 
-                    likeCount: result.data.likeCount 
-                  }
-                : comment
-            )
-          }
-        });
-        
-        return true;
-      } else {
-        set({ error: result.error || 'Failed to like comment' });
-        return false;
-      }
-    } catch (error) {
-      set({ error: 'An unexpected error occurred' });
-      return false;
-    }
-  },
-
-  // Unlike comment
-  unlikeComment: async (commentId: string, postId: string) => {
-    try {
-      const result = await commentService.unlikeComment(commentId);
-      
-      if (result.success && result.data) {
-        const { comments } = get();
-        const postComments = comments[postId] || [];
-        
-        set({
-          comments: {
-            ...comments,
-            [postId]: postComments.map(comment =>
-              comment.id === commentId
-                ? { 
-                    ...comment, 
-                    likes: result.data.likes, 
-                    likeCount: result.data.likeCount 
-                  }
-                : comment
-            )
-          }
-        });
-        
-        return true;
-      } else {
-        set({ error: result.error || 'Failed to unlike comment' });
-        return false;
-      }
-    } catch (error) {
-      set({ error: 'An unexpected error occurred' });
       return false;
     }
   },
@@ -173,3 +103,4 @@ export const useCommentStore = create<CommentState>((set, get) => ({
   // Clear error
   clearError: () => set({ error: null }),
 }));
+

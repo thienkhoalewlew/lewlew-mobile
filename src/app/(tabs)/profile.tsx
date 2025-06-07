@@ -8,12 +8,14 @@ import {
   FlatList,
   ScrollView,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  TextInput,
+  Modal
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Settings, LogOut, Edit2, Grid, Map, Image as ImageIcon, Folder } from 'lucide-react-native';
+import { Settings, LogOut, Edit2, Grid, Image as ImageIcon, Folder, X } from 'lucide-react-native';
 import { RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -24,27 +26,26 @@ import { useUserStore } from '../../store/userStore';
 import { colors } from '../../constants/colors';
 import { Post } from '../../types';
 import { pickImage } from '../../services/cloudinaryService';
-import { MapView } from '../../components/MapView';
-import { PostGroupView } from '../../components/PostGroupView';
-import ImageGallery from '../../components/ImageGallery';
+import { useTranslation } from '../../i18n';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { logout, token } = useAuthStore();
   const { posts, getUserPosts, isLoading: postsLoading } = usePostStore();
-  const { currentUser, isLoading: userLoading, error, updateUserAvatar, getCurrentUserProfile } = useUserStore();
+  const { currentUser, isLoading: userLoading, error, updateUserAvatar, getCurrentUserProfile, updateBio } = useUserStore();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
-  const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedPostGroup, setSelectedPostGroup] = useState<Post[]>([]);
-  const [showImageGallery, setShowImageGallery] = useState(false);
+  const [showBioModal, setShowBioModal] = useState(false);
+  const [newBio, setNewBio] = useState('');
 
   useEffect(() => {
     const fetchProfile = async () => {
+      console.log('Fetching profile...');
       const profile = await getCurrentUserProfile();
-      // Tải posts ngay sau khi có user profile
+      console.log('Fetched profile:', profile);
       if (profile) {
         await loadUserPosts();
       }
@@ -73,28 +74,35 @@ export default function ProfileScreen() {
     }
   }, [currentUser]);
   
-  // Hàm tải bài viết người dùng
   const loadUserPosts = async () => {
-    const result = await getUserPosts();
-    console.log('User Posts API result:', result);
+    console.log('Loading user posts...');
+    try {
+      setRefreshing(true);
+      const result = await getUserPosts();
+      console.log('Loaded posts:', result);
+      if (Array.isArray(result)) {
+        setUserPosts(result);
+      }
+    } catch (error) {
+      console.error('Error loading posts:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  // Hàm refresh để kéo xuống làm mới
   const handleRefresh = async () => {
-    setRefreshing(true);
-    const result = await getUserPosts();
-    console.log('Refreshed User Posts:', result);
-    setRefreshing(false);
+    console.log('Refreshing profile...');
+    await loadUserPosts();
   };
 
   const handleLogout = () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
+      t('profile.logoutTitle'),
+      t('profile.logoutMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         { 
-          text: 'Logout', 
+          text: t('auth.logout'), 
           style: 'destructive',
           onPress: () => {
             logout();
@@ -116,14 +124,14 @@ export default function ProfileScreen() {
       await updateUserAvatar(imageUri);
       
       if (error) {
-        Alert.alert('Error', error);
+        Alert.alert(t('common.error'), error);
       } else {
-        Alert.alert('Success', 'Updated profile picture successfully!');
+        Alert.alert(t('common.success'), t('profile.updateAvatarSuccess'));
         // Tải lại profile từ backend
         await getCurrentUserProfile();
       }
     } catch (error) {
-      Alert.alert('Error', 'An error occurred while updating the profile picture');
+      Alert.alert(t('common.error'), t('profile.updateAvatarError'));
       console.error('Error updating avatar:', error);
     }
   };
@@ -132,73 +140,84 @@ export default function ProfileScreen() {
     router.push(`/post/${postId}`);
   };
 
-  const handleCloseGroup = () => {
-    setSelectedPostGroup([]);
+  const handleUpdateBio = async () => {
+    try {
+      await updateBio(newBio.trim());
+      setShowBioModal(false);
+      Alert.alert(t('common.success'), t('profile.bioUpdateSuccess'));
+    } catch (error) {
+      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('profile.bioUpdateError'));
+    }
   };
-
-  const handleSelectPostFromGroup = (post: Post) => {
-    setSelectedPostGroup([]);
-    handleViewPost(post.id);
-  };
-
-  const renderGridItem = ({ item }: { item: Post }) => (
-    <TouchableOpacity 
-      style={styles.gridItem}
-      onPress={() => handleViewPost(item.id)}
-    >
-      <Image source={{ uri: item.imageUrl }} style={styles.gridImage} />
-    </TouchableOpacity>
-  );
-
-  const renderMapView = () => (
-    <View style={styles.mapViewContainer}>
-      <MapView
-        posts={userPosts}
-        selectedPostId={undefined}
-        onMarkerPress={(postOrGroup) => {
-          if(Array.isArray(postOrGroup)) {
-            setSelectedPostGroup(postOrGroup);
-          }
-          else {
-            handleViewPost(postOrGroup.id);
-          }
-        }}
-        showUserLocation={false}
-        user={currentUser || undefined}
-        filterByRadius={false}
-      />
-      
-      {/* Map overlay info */}
-      <View style={styles.mapOverlayInfo}>
-        <Text style={styles.mapInfoText}>
-          {userPosts.length} {userPosts.length === 1 ? 'post' : 'posts'} on map
-        </Text>
-        <Text style={styles.mapInfoSubtext}>
-          Tap markers to view posts
-        </Text>
-      </View>
-    </View>
-  );
 
   if (userLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text>Loading profile...</Text>
+        <Text>{t('profile.loadingProfile')}</Text>
       </View>
     );
   }
 
   if (!currentUser) return null;
 
+  // Post đã hết hạn là post đã đăng lâu hơn 24h
+  const expiredPosts = userPosts.filter(post => {
+    const createdDate = new Date(post.createdAt);
+    const now = new Date();
+    const timeDifference = now.getTime() - createdDate.getTime();
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
+    return hoursDifference >= 24;
+  });
+  const activePosts = userPosts.filter(post => {
+    const createdDate = new Date(post.createdAt);
+    const now = new Date();
+    const timeDifference = now.getTime() - createdDate.getTime();
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
+    return hoursDifference < 24;
+  });
+
+  const renderGridItem = ({ item }: { item: Post }) => {
+    const createdDate = new Date(item.createdAt);
+    const now = new Date();
+    const timeDifference = now.getTime() - createdDate.getTime();
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
+    const isExpired = hoursDifference >= 24;
+    
+    return (
+      <TouchableOpacity 
+        style={styles.gridItem}
+        onPress={() => handleViewPost(item.id)}
+      >
+        <Image source={{ uri: item.imageUrl }} style={[styles.gridImage, isExpired && styles.expiredImage]} />
+        {isExpired && (
+          <View style={styles.expiredBadge}>
+            <Text style={styles.expiredText}>{t('profile.expired')}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
       
       <View style={styles.header}>
-        <Text style={styles.title}>Profile</Text>
-        <TouchableOpacity onPress={handleLogout}>
-          <LogOut size={20} color={colors.text} />
-        </TouchableOpacity>
+        <Text style={styles.title}>{t('navigation.profile')}</Text>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.headerButton} 
+            onPress={() => router.push('/settings')}
+          >
+            <Settings size={20} color={colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.headerButton}
+            onPress={handleLogout}
+          >
+            <LogOut size={20} color={colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
       
       <ScrollView
@@ -208,7 +227,7 @@ export default function ProfileScreen() {
         }
       >
         <View style={styles.profileHeader}>
-          <View style={styles. profileImageContainer}>
+          <View style={styles.profileImageContainer}>
             <Image 
               source={{ uri: currentUser.avatar }} 
               style={styles.profileImage} 
@@ -221,123 +240,126 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
           
-          <Text style={styles.username}>{currentUser.fullname || 'Unknown User'}</Text>
+          <Text style={styles.username}>{currentUser.fullname || t('profile.unknownUser')}</Text>
+          <TouchableOpacity onPress={() => router.push('/profile/edit')}>
+            <Text style={styles.userHandle}>@{currentUser.username}</Text>
+          </TouchableOpacity>
           {currentUser.bio ? (
-            <Text style={styles.bio}>{currentUser.bio}</Text>
+            <TouchableOpacity 
+              onPress={() => {
+                setNewBio(currentUser.bio || '');
+                setShowBioModal(true);
+              }}
+            >
+              <Text style={styles.bio}>{currentUser.bio}</Text>
+            </TouchableOpacity>
           ) : (
-            <TouchableOpacity>
-              <Text style={styles.addBioText}>Add a bio</Text>
+            <TouchableOpacity onPress={() => {
+              setNewBio('');
+              setShowBioModal(true);
+            }}>
+              <Text style={styles.addBioText}>{t('profile.addBio')}</Text>
             </TouchableOpacity>
           )}
+          
+          {/* Bio Edit Modal */}
+          <Modal
+            visible={showBioModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowBioModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{t('profile.editBio')}</Text>
+                  <TouchableOpacity 
+                    onPress={() => setShowBioModal(false)}
+                    style={styles.closeButton}
+                  >
+                    <X size={20} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+                
+                <TextInput
+                  value={newBio}
+                  onChangeText={setNewBio}
+                  placeholder={t('profile.bioPlaceholder')}
+                  multiline
+                  maxLength={200}
+                  style={styles.bioInput}
+                />
+                
+                <Text style={styles.charCount}>
+                  {newBio.length}/200 {t('profile.charactersCount')}
+                </Text>
+
+                <View style={styles.modalButtons}>
+                  <Button
+                    title={t('common.cancel')}
+                    onPress={() => setShowBioModal(false)}
+                    style={styles.cancelButton}
+                    textStyle={styles.cancelButtonText}
+                  />
+                  <Button
+                    title={t('common.save')}
+                    onPress={handleUpdateBio}
+                    style={styles.saveButton}
+                  />
+                </View>
+              </View>
+            </View>
+          </Modal>
           
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{currentUser.friendCount ?? 0}</Text>
-              <Text style={styles.statLabel}>Friends</Text>
+              <Text style={styles.statLabel}>{t('profile.friends')}</Text>
+            </View>
+            <View style={[styles.statItem, { marginLeft: 20 }]}>
+              <Text style={styles.statValue}>{activePosts.length}</Text>
+              <Text style={styles.statLabel}>{t('profile.activePosts')}</Text>
+            </View>
+            <View style={[styles.statItem, { marginLeft: 20 }]}>
+              <Text style={styles.statValue}>{expiredPosts.length}</Text>
+              <Text style={styles.statLabel}>{t('profile.expired')}</Text>
             </View>
           </View>
-          
-          {/* Image Gallery Button */}
-          <TouchableOpacity 
-            style={styles.imageGalleryButton}
-            onPress={() => setShowImageGallery(true)}
-          >
-            <Folder size={20} color={colors.primary} />
-            <Text style={styles.imageGalleryButtonText}>View All Images</Text>
-          </TouchableOpacity>
         </View>
         
         <View style={styles.contentHeader}>
-          <Text style={styles.contentTitle}>My Posts</Text>
-          <View style={styles.viewToggle}>
-            <TouchableOpacity 
-              style={[
-                styles.viewToggleButton,
-                viewMode === 'grid' && styles.viewToggleButtonActive
-              ]}
-              onPress={() => setViewMode('grid')}
-            >
-              <Grid size={20} color={viewMode === 'grid' ? colors.primary : colors.textLight} />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[
-                styles.viewToggleButton,
-                viewMode === 'map' && styles.viewToggleButtonActive
-              ]}
-              onPress={() => setViewMode('map')}
-            >
-              <Map size={20} color={viewMode === 'map' ? colors.primary : colors.textLight} />
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.contentTitle}>{t('profile.myPosts')}</Text>
         </View>
         {postsLoading && !refreshing ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading posts...</Text>
+            <Text style={styles.loadingText}>{t('profile.loadingPosts')}</Text>
           </View>
-        ) : viewMode === 'grid' ? (
-          userPosts.length > 0 ? (
-            <FlatList
-              data={userPosts}
-              keyExtractor={(item) => item.id}
-              renderItem={renderGridItem}
-              numColumns={3}
-              scrollEnabled={false}
-              contentContainerStyle={styles.gridContainer}
-            />
-          ) : (
-            <View style={styles.emptyContainer}>
-              <ImageIcon size={40} color={colors.textLight} />
-              <Text style={styles.emptyTitle}>No photos yet</Text>
-              <Text style={styles.emptyText}>
-                Share your first photo on the map
-              </Text>
-              <Button
-                title="Create Post"
-                onPress={() => router.push('/(tabs)/create')}
-                style={styles.createButton}
-                size="small"
-              />
-            </View>
-          )
+        ) : userPosts.length > 0 ? (
+          <FlatList
+            data={userPosts}
+            keyExtractor={(item) => item.id}
+            renderItem={renderGridItem}
+            numColumns={3}
+            scrollEnabled={false}
+            contentContainerStyle={styles.gridContainer}
+          />
         ) : (
-          /* Map View */
-          userPosts.length > 0 ? (
-            renderMapView()
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Map size={40} color={colors.textLight} />
-              <Text style={styles.emptyTitle}>No posts to show on map</Text>
-              <Text style={styles.emptyText}>
-                Create posts with location to see them on the map
-              </Text>
-              <Button
-                title="Create Post"
-                onPress={() => router.push('/(tabs)/create')}
-                style={styles.createButton}
-                size="small"
-              />
-            </View>
-          )
+          <View style={styles.emptyContainer}>
+            <ImageIcon size={40} color={colors.textLight} />
+            <Text style={styles.emptyTitle}>{t('profile.noPhotosYet')}</Text>
+            <Text style={styles.emptyText}>
+              {t('profile.shareFirstPhoto')}
+            </Text>
+            <Button
+              title={t('profile.createPost')}
+              onPress={() => router.push('/(tabs)/create')}
+              style={styles.createButton}
+              size="small"
+            />
+          </View>
         )}
       </ScrollView>
-      
-      {/* PostGroupView for clusters */}
-      {selectedPostGroup.length > 0 && (
-        <PostGroupView
-          posts={selectedPostGroup}
-          onClose={handleCloseGroup}
-          onSelectPost={handleSelectPostFromGroup}
-        />
-      )}
-      
-      {/* Image Gallery Modal */}
-      <ImageGallery
-        visible={showImageGallery}
-        onClose={() => setShowImageGallery(false)}
-        filterType="all"
-        selectionMode={false}
-      />
     </View>
   );
 }
@@ -404,6 +426,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 4,
   },
+  userHandle: {
+    fontSize: 14,
+    color: colors.textLight,
+    marginBottom: 12,
+  },
   bio: {
     fontSize: 14,
     color: colors.textLight,
@@ -450,22 +477,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  viewToggle: {
-    flexDirection: 'row',
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  viewToggleButton: {
-    padding: 8,
-    width: 40,
-    alignItems: 'center',
-  },
-  viewToggleButtonActive: {
-    backgroundColor: colors.card,
-  },
   gridContainer: {
     padding: 4,
   },
@@ -473,22 +484,28 @@ const styles = StyleSheet.create({
     flex: 1/3,
     aspectRatio: 1,
     margin: 1,
+    position: 'relative',
   },
   gridImage: {
     flex: 1,
     borderRadius: 4,
   },
-  mapContainer: {
-    height: 300,
-    margin: 16,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+  expiredImage: {
+    opacity: 0.7,
   },
-  mapPlaceholder: {
-    fontSize: 16,
-    color: colors.textLight,
+  expiredBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  expiredText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '500',
   },
   emptyContainer: {
     padding: 40,
@@ -511,60 +528,71 @@ const styles = StyleSheet.create({
   createButton: {
     width: 150,
   },
-  // Image Gallery Button Styles
-  imageGalleryButton: {
+  headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 16,
+  },
+  headerButton: {
+    padding: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: colors.card,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginTop: 16,
+    alignItems: 'center',
   },
-  imageGalleryButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.primary,
-  },
-  // Map View Styles
-  mapViewContainer: {
-    height: 400,
-    margin: 16,
+  modalContent: {
+    backgroundColor: colors.background,
     borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: colors.card,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
   },
-  mapOverlayInfo: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  mapInfoText: {
-    fontSize: 14,
-    fontWeight: '600',
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
     color: colors.text,
   },
-  mapInfoSubtext: {
+  closeButton: {
+    padding: 4,
+  },
+  bioInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    fontSize: 16,
+  },
+  charCount: {
     fontSize: 12,
     color: colors.textLight,
-    marginTop: 2,
+    alignSelf: 'flex-end',
+    marginTop: 8,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 20,
+    gap: 12,
+  },
+  cancelButton: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cancelButtonText: {
+    color: colors.text,
+  },
+  saveButton: {
+    minWidth: 100,
   },
 });
