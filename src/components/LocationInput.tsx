@@ -32,7 +32,8 @@ export const LocationInput: React.FC<LocationInputProps> = ({
   isLoading = false,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [tempLocationName, setTempLocationName] = useState(locationName);  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [tempLocationName, setTempLocationName] = useState(locationName);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [locationHistory, setLocationHistory] = useState<LocationHistory[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -285,7 +286,8 @@ export const LocationInput: React.FC<LocationInputProps> = ({
             </>
           )}
         </View>
-      </View>      <Animated.View 
+      </View>
+      <Animated.View 
         style={[
           styles.locationInputContainer,
           {

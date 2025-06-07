@@ -11,9 +11,9 @@ const userCache: Record<string, User> = {};
 export const mapBackendUserToAppUser = (backendUser: any): User => {
   return {
     id: backendUser._id || backendUser.id,
-    username: backendUser.username || backendUser.email?.split('@')[0] || '', 
+    username: backendUser.username || '', 
     fullname: backendUser.fullName || backendUser.fullname || 'Unknown User',
-    email: backendUser.email || '',
+    phoneNumber: backendUser.phoneNumber || '',
     avatar: backendUser.avatar || 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
     bio: backendUser.bio || '',
     friendCount: backendUser.friendCount || (Array.isArray(backendUser.friends) ? backendUser.friends.length : 0),
@@ -21,10 +21,9 @@ export const mapBackendUserToAppUser = (backendUser: any): User => {
     createdAt: backendUser.createdAt ? new Date(backendUser.createdAt) : new Date(),
     token: backendUser.token,
     requestId: backendUser.requestId,
+    isRequestSender: backendUser.isRequestSender,
     settings: backendUser.settings || {
-      notificationRadius: 5,
-      pushNotifications: true,
-      emailNotifications: true
+      notificationRadius: 5
     }
   };
 };
@@ -136,7 +135,7 @@ export const getFriendsList = async (page: number = 1, limit: number = 10): Prom
   }
 };
 
-// Hàm tìm kiếm người dùng theo tên hoặc email
+// Hàm tìm kiếm người dùng theo số điện thoại hoặc username
 export const searchUsers = async (query: string, page: number = 1, limit: number = 10): Promise<User[]> => {
   try {
     if (!query.trim()) {
@@ -338,6 +337,24 @@ export const unfriendUser = async (friendId: string): Promise<{ success: boolean
 };
 
 /**
+ * Hủy lời mời kết bạn đã gửi
+ * @param requestId ID của lời mời kết bạn
+ * @returns Promise<{ success: boolean, message: string }> Kết quả của việc hủy lời mời
+ */
+export const cancelFriendRequest = async (requestId: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await api.friendrelations.cancelFriendRequest(requestId);
+    if (response.error) {
+      return { success: false, message: response.error };
+    }
+    return { success: true, message: 'Friend request cancelled successfully' };
+  } catch (error) {
+    console.error('Error cancelling friend request:', error);
+    return { success: false, message: 'Unable to cancel friend request. Please try again later.' };
+  }
+};
+
+/**
  * Lấy danh sách ảnh đã upload của user hiện tại
  * @returns Promise<any[]> Danh sách ảnh đã upload
  */
@@ -406,13 +423,20 @@ export const getUserImagesByType = async (type: 'user_avatar' | 'post_image' | '
 
 export const updateUserSettings = async (settings: {
   notificationRadius: number;
-  pushNotifications: boolean;
-  emailNotifications: boolean;
   language?: 'en' | 'vi';
 }) => {
   try {
     console.log('Updating settings with:', settings);
-    const response = await api.auth.updateSettings(settings);
+    
+    // Add required properties with default values
+    const completeSettings = {
+      notificationRadius: settings.notificationRadius,
+      pushNotifications: true, // Default to true
+      emailNotifications: true, // Default to true
+      language: settings.language
+    };
+    
+    const response = await api.auth.updateSettings(completeSettings);
     
     if (response.error) {
       throw new Error(response.error);
@@ -426,32 +450,6 @@ export const updateUserSettings = async (settings: {
     return mapBackendUserToAppUser(response.data);
   } catch (error) {
     console.error('Error updating settings:', error);
-    throw error;
-  }
-};
-
-export const updateUserEmail = async (email: string) => {
-  try {
-    const response = await api.auth.updateEmail({ email });
-    if (response.data) {
-      return mapBackendUserToAppUser(response.data);
-    }
-    throw new Error('Failed to update email');
-  } catch (error) {
-    console.error('Error updating email:', error);
-    throw error;
-  }
-};
-
-export const updateUserPassword = async (currentPassword: string, newPassword: string) => {
-  try {
-    const response = await api.auth.updatePassword({
-      currentPassword,
-      newPassword,
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error updating password:', error);
     throw error;
   }
 };

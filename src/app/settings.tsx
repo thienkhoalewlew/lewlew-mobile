@@ -16,10 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
   ChevronLeft, 
   User, 
-  Mail, 
   Lock, 
   MapPin,
-  Bell,
   Globe,
   LucideIcon
 } from 'lucide-react-native';
@@ -65,14 +63,10 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { currentUser, updateUserSettings, isLoading, getCurrentUserProfile } = useUserStore();
   const { language, setLanguage, t } = useTranslation();
-  
-  // Initialize with null to indicate unloaded state
+    // Initialize with null to indicate unloaded state
   const [notificationRadius, setNotificationRadius] = useState<string | null>(null);
-  const [pushNotifications, setPushNotifications] = useState<boolean | null>(null);
-  const [emailNotifications, setEmailNotifications] = useState<boolean | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'vi'>(language);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
-
   // Load settings when screen mounts
   useEffect(() => {
     const loadSettings = async () => {
@@ -85,28 +79,21 @@ export default function SettingsScreen() {
         if (user?.settings) {
           console.log('Setting values from backend:', {
             radius: user.settings.notificationRadius,
-            push: user.settings.pushNotifications,
-            email: user.settings.emailNotifications,
             language: user.settings.language
           });
           
           setNotificationRadius(user.settings.notificationRadius.toString());
-          setPushNotifications(user.settings.pushNotifications);
-          setEmailNotifications(user.settings.emailNotifications);
           setSelectedLanguage(user.settings.language || 'vi');
         } else {
           // If no settings in backend, set defaults
           console.log('No settings found in backend, using defaults');
           setNotificationRadius('5');
-          setPushNotifications(true);
-          setEmailNotifications(true);
           setSelectedLanguage('vi');
-        }      } catch (error) {
+        }
+      } catch (error) {
         console.error('Error loading settings:', error);
         // Set defaults on error
         setNotificationRadius('5');
-        setPushNotifications(true);
-        setEmailNotifications(true);
         setSelectedLanguage('vi');
         Alert.alert(t('common.error'), t('settings.settingsLoadError'));
       }
@@ -120,14 +107,12 @@ export default function SettingsScreen() {
     if (currentUser?.settings) {
       console.log('Updating form from currentUser change:', currentUser.settings);
       setNotificationRadius(currentUser.settings.notificationRadius.toString());
-      setPushNotifications(currentUser.settings.pushNotifications);
-      setEmailNotifications(currentUser.settings.emailNotifications);
       setSelectedLanguage(currentUser.settings.language);
     }
   }, [currentUser]);
 
   // Show loading state while initial values are being fetched
-  if (notificationRadius === null || pushNotifications === null || emailNotifications === null) {
+  if (notificationRadius === null) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -135,17 +120,16 @@ export default function SettingsScreen() {
       </View>
     );
   }
-
   const handleUpdateSettings = async () => {
     try {
       const radius = parseInt(notificationRadius);
       if (isNaN(radius) || radius < 1 || radius > 50) {
         Alert.alert(t('settings.invalidRadius'), t('settings.radiusRangeError'));
         return;
-      }      const newSettings = {
+      }
+
+      const newSettings = {
         notificationRadius: radius,
-        pushNotifications,
-        emailNotifications,
         language: selectedLanguage
       };
 
@@ -164,16 +148,17 @@ export default function SettingsScreen() {
 
       // Verify the settings were actually updated
       console.log('Settings after update:', updatedUser.settings);
-        // Update local state to match new settings
+      
+      // Update local state to match new settings
       setNotificationRadius(updatedUser.settings.notificationRadius.toString());
-      setPushNotifications(updatedUser.settings.pushNotifications);
-      setEmailNotifications(updatedUser.settings.emailNotifications);
       setSelectedLanguage(updatedUser.settings.language);
       
       // Update app language if changed
       if (selectedLanguage !== language) {
         setLanguage(selectedLanguage);
-      }      Alert.alert(t('common.success'), t('settings.settingsUpdated'), [
+      }
+
+      Alert.alert(t('common.success'), t('settings.settingsUpdated'), [
         {
           text: t('common.ok'),
           onPress: () => {
@@ -181,9 +166,7 @@ export default function SettingsScreen() {
             console.log('Final settings check:', {
               current: updatedUser.settings,
               local: {
-                notificationRadius: parseInt(notificationRadius),
-                pushNotifications,
-                emailNotifications
+                notificationRadius: parseInt(notificationRadius)
               }
             });
             // Navigate directly to profile screen
@@ -196,7 +179,8 @@ export default function SettingsScreen() {
       Alert.alert(
         t('common.error'),
         error instanceof Error ? error.message : 'Failed to update settings'
-      );}
+      );
+    }
   };
 
   const languageOptions = [
@@ -216,11 +200,6 @@ export default function SettingsScreen() {
           icon: User,
           label: t('profile.editProfile'),
           onPress: () => router.push('/settings/fullname'),
-        },
-        {
-          icon: Mail,
-          label: t('auth.email'),
-          onPress: () => router.push('/settings/email'),
         },
         {
           icon: Lock,
@@ -246,29 +225,6 @@ export default function SettingsScreen() {
             />
           ),
         },
-        {
-          icon: Bell,
-          label: t('settings.pushNotifications'),
-          value: pushNotifications,
-          toggle: (
-            <Switch
-              value={pushNotifications}
-              onValueChange={setPushNotifications}
-              trackColor={{ false: colors.border, true: colors.primary }}
-            />
-          ),
-        },
-        {
-          icon: Mail,
-          label: t('settings.emailNotifications'),
-          value: emailNotifications,
-          toggle: (
-            <Switch
-              value={emailNotifications}
-              onValueChange={setEmailNotifications}
-              trackColor={{ false: colors.border, true: colors.primary }}
-            />
-          ),        },
       ],
     },
     {

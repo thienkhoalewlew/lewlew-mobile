@@ -2,18 +2,18 @@ export interface User {
   id: string; // ID của người dùng
   username: string; // Tên người dùng
   fullname: string; // Tên đầy đủ của người dùng
-  email: string; // Email của người dùng
+  phoneNumber: string; // Số điện thoại của người dùng
   avatar: string; // URL ảnh đại diện
   bio?: string; // Tiểu sử của người dùng (nếu có)
   friendCount: number; // Số lượng bạn bè
   status: 'none' | 'pending' | 'accepted' | 'rejected'; // Trạng thái kết bạn
   requestId?: string; // ID của yêu cầu kết bạn (nếu có)
+  isRequestSender?: boolean; // Có phải là người gửi yêu cầu kết bạn không
   createdAt: Date; // Ngày tạo tài khoản
   token?: string; // JWT token từ backend (nếu có)
+  phoneVerified?: boolean; // Trạng thái xác minh số điện thoại
   settings?: {
     notificationRadius: number; // Bán kính thông báo (km)
-    pushNotifications: boolean;
-    emailNotifications: boolean;
     language: 'en' | 'vi'; // Ngôn ngữ
   };
   location?: {
@@ -86,12 +86,14 @@ export interface AuthState {
   error: string | null;
   isInitialized: boolean;
   initialize: () => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  register: (fullName: string, phoneNumber: string, password: string, username: string) => Promise<void>;
+  login: (login: string, password: string) => Promise<void>; // login can be phone or username
   logout: () => void;
   updateProfile: (userData: Partial<User>) => void;
   clearError: () => void;
   fetchUserProfile: () => Promise<void>;
+  sendVerificationCode: (phoneNumber: string) => Promise<void>;
+  verifyCode: (phoneNumber: string, code: string) => Promise<void>;
 }
 
 export interface PostState {

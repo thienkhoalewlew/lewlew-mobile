@@ -22,21 +22,25 @@ import { Heart, Navigation, MoreHorizontal, ArrowLeft, MessageCircle, Share } fr
 import { usePostStore } from '../../store/postStore';
 import { useCommentStore } from '../../store/commentStore';
 import { useAuthStore } from '../../store/authStore';
+import { useLocationStore } from '../../store/locationStore';
+import { useUserStore } from '../../store/userStore';
 import { colors } from '../../constants/colors';
 import { User, Post as PostType } from '../../types';
 import { ensureStringId } from '@/src/services/postService';
-import { formatTimeAgo } from '../../utils/timeUtils';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { isPostExpired } from '../../utils/timeUtils';
 import { getUserById } from '../../services/userService';
 import { CommentList, CreateComment } from '../../components/comments';
 import { useTranslation } from '../../i18n';
+import { isPostWithinNotificationRadius } from '../../utils/distanceUtils';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuthStore();
+  const { currentUser } = useUserStore();
+  const { currentLocation } = useLocationStore();
   const { posts, likePost, unlikePost, deletePost } = usePostStore();
   const { comments, getComments, loading: commentsLoading } = useCommentStore();
   const { t, language } = useTranslation();
@@ -427,6 +431,14 @@ export default function PostDetailScreen() {
   const commentCount = comments[id as string]?.length || post?.comments?.length || 0;
   const commentsToShow = commentsPage * 5;
 
+  // Check if post is within notification radius
+  const notificationRadius = currentUser?.settings?.notificationRadius || 5;
+  const isWithinRadius = post ? isPostWithinNotificationRadius(
+    currentLocation,
+    post.location,
+    notificationRadius
+  ) : false;
+
   // Debug logs
   console.log('Comments debug:', {
     postId: id,
@@ -435,6 +447,14 @@ export default function PostDetailScreen() {
     commentsToShow,
     hasMoreComments,
     actualComments: comments[id as string]?.length || 0
+  });
+
+  console.log('Location check debug:', {
+    postId: id,
+    userLocation: currentLocation,
+    postLocation: post?.location,
+    notificationRadius,
+    isWithinRadius
   });
 
   if (!post) {
@@ -552,13 +572,22 @@ export default function PostDetailScreen() {
                 <MessageCircle size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.findLocationButton]} 
-              onPress={handleViewLocation}
-            >
-              <Navigation size={24} color="white" />
-              <Text style={styles.findLocationText}>{t('posts.findLocation')}</Text>
-            </TouchableOpacity>
+            {/* Only show Find Location button if post is within notification radius */}
+            {isWithinRadius ? (
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.findLocationButton]} 
+                onPress={handleViewLocation}
+              >
+                <Navigation size={24} color="white" />
+                <Text style={styles.findLocationText}>{t('posts.findLocation')}</Text>
+              </TouchableOpacity>
+            ) : currentLocation && (
+              <View style={styles.outOfRangeContainer}>
+                <Text style={styles.outOfRangeText}>
+                  {t('posts.postOutOfRange')}
+                </Text>
+              </View>
+            )}
           </View>
           
           {/* Post Content */}
@@ -860,5 +889,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.primary,
     fontWeight: '500',
+  },
+  outOfRangeContainer: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  outOfRangeText: {
+    color: colors.textLight,
+    fontSize: 12,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });

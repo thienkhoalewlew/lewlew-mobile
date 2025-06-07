@@ -109,7 +109,6 @@ export default function SearchFriendsScreen() {
       console.error('Error responding to friend request:', error);
     }
   };
-
   const renderSearchResult = ({ item }: { item: User }) => (
     <TouchableOpacity 
       style={styles.userItem}
@@ -119,6 +118,9 @@ export default function SearchFriendsScreen() {
       <View style={styles.userInfo}>
         <Text style={styles.username}>{item.fullname}</Text>
         <Text style={styles.userEmail}>@{item.username}</Text>
+        {item.phoneNumber && (
+          <Text style={styles.userPhone}>{item.phoneNumber}</Text>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -131,6 +133,9 @@ export default function SearchFriendsScreen() {
         <TouchableOpacity onPress={() => router.push(`/profile/${item.id}`)}>
           <Text style={styles.username}>{item.fullname}</Text>
           <Text style={styles.userEmail}>@{item.username}</Text>
+          {item.phoneNumber && (
+            <Text style={styles.userPhone}>{item.phoneNumber}</Text>
+          )}
         </TouchableOpacity>
         
         <View style={styles.requestActions}>
@@ -159,6 +164,9 @@ export default function SearchFriendsScreen() {
         <TouchableOpacity onPress={() => router.push(`/profile/${item.id}`)}>
           <Text style={styles.username}>{item.fullname}</Text>
           <Text style={styles.userEmail}>@{item.username}</Text>
+          {item.phoneNumber && (
+            <Text style={styles.userPhone}>{item.phoneNumber}</Text>
+          )}
         </TouchableOpacity>
         <Text style={styles.pendingText}>{t('friends.requestSent')}</Text>
       </View>
@@ -357,8 +365,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+  },  userEmail: {
+    fontSize: 14,
+    color: colors.textLight,
+    marginTop: 2,
   },
-  userEmail: {
+  userPhone: {
     fontSize: 14,
     color: colors.textLight,
     marginTop: 2,

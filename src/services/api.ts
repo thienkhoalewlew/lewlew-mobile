@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ca } from 'date-fns/locale';
 
-export const API_URL = 'http://192.168.1.8:3000/api';
+export const API_URL = 'https://lewlew.io.vn/api';
 
 // Headers mặc định cho các request
 const defaultHeaders = {
@@ -63,12 +63,12 @@ export const api = {
   // Auth APIs
   auth: {
     // Đăng ký người dùng mới
-    register: async (fullName: string, email: string, password: string): Promise<ApiResponse<any>> => {
+    register: async (fullName: string, phoneNumber: string, password: string, username: string): Promise<ApiResponse<any>> => {
       try {
         const response = await fetch(`${API_URL}/auth/register`, {
           method: 'POST',
           headers: defaultHeaders,
-          body: JSON.stringify({ fullName, email, password }),
+          body: JSON.stringify({ fullName, phoneNumber, password, username }),
         });
         
         
@@ -80,14 +80,13 @@ export const api = {
         return { error: 'Network error. Please check your connection.' };
       }
     },
-
     // Đăng nhập
-    login: async (email: string, password: string): Promise<ApiResponse<any>> => {
+    login: async (login: string, password: string): Promise<ApiResponse<any>> => {
       try {
         const response = await fetch(`${API_URL}/auth/login`, {
           method: 'POST',
           headers: defaultHeaders,
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ login, password }),
         });
         
         return handleResponse<any>(response);
@@ -95,7 +94,8 @@ export const api = {
         console.error('Login error:', error);
         return { error: 'Network error. Please check your connection.' };
       }
-    },    // Lấy thông tin profile người dùng hiện tại hoặc theo ID
+    },
+    // Lấy thông tin profile người dùng hiện tại hoặc theo ID
     getProfile: async (userId?: string): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
@@ -272,6 +272,37 @@ export const api = {
         return { error: 'Network error. Please check your connection.' };
       }
     },
+    // Gửi mã xác thực SMS
+    sendVerificationCode: async (phoneNumber: string): Promise<ApiResponse<any>> => {
+      try {
+        const response = await fetch(`${API_URL}/auth/send-verification`, {
+          method: 'POST',
+          headers: defaultHeaders,
+          body: JSON.stringify({ phoneNumber }),
+        });
+        
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Send verification code error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Xác thực mã SMS
+    verifyCode: async (phoneNumber: string, code: string): Promise<ApiResponse<any>> => {
+      try {
+        const response = await fetch(`${API_URL}/auth/verify-code`, {
+          method: 'POST',
+          headers: defaultHeaders,
+          body: JSON.stringify({ phoneNumber, code }),
+        });
+        
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Verify code error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
   },
   
   // Friend relationships APIs
@@ -373,7 +404,6 @@ export const api = {
         return { error: 'Network error. Please check your connection.' };
       }
     },
-
     unfriend: async (friendId: string): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
@@ -384,6 +414,21 @@ export const api = {
         return handleResponse<any>(response);
       } catch (error) {
         console.error('Unfriend error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Cancel friend request
+    cancelFriendRequest: async (requestId: string): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/friendrelations/request/${requestId}`, {
+          method: 'DELETE',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Cancel friend request error:', error);
         return { error: 'Network error. Please check your connection.' };
       }
     },

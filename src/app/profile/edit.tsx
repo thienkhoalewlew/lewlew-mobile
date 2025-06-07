@@ -77,10 +77,12 @@ export default function EditProfileScreen() {
       // Update username if changed
       if (username !== currentUser?.username) {
         await updateUsername(username);
-      }      Alert.alert(t('common.success'), t('profile.profileUpdatedSuccessfully'), [
+      }
+      Alert.alert(t('common.success'), t('profile.profileUpdatedSuccessfully'), [
         { text: t('common.ok'), onPress: () => router.back() }
       ]);
-    } catch (error) {      Alert.alert(
+    } catch (error) {
+         Alert.alert(
         t('common.error'),
         error instanceof Error ? error.message : t('profile.profileUpdateError')
       );
@@ -91,14 +93,16 @@ export default function EditProfileScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       
-      <View style={styles.header}>        <TouchableOpacity onPress={() => router.back()}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
           <ChevronLeft size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.title}>{t('profile.editProfile')}</Text>
         <TouchableOpacity onPress={handleSave} disabled={isLoading}>
           <Save size={24} color={isLoading ? colors.textLight : colors.primary} />
         </TouchableOpacity>
-      </View>      <ScrollView style={styles.content}>
+      </View>
+      <ScrollView style={styles.content}>
         <Input
           label={t('profile.fullName')}
           placeholder={t('profile.enterFullName')}

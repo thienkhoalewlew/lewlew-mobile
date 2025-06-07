@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { User, Mail, Lock } from 'lucide-react-native';
+import { User, Phone, Lock, MessageSquare, AtSign } from 'lucide-react-native';
 
 import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
@@ -23,18 +23,23 @@ import { useTranslation } from '../../i18n';
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { register, isLoading, error, clearError, isAuthenticated } = useAuthStore();
+  const { register, sendVerificationCode, verifyCode, isLoading, error, clearError, isAuthenticated } = useAuthStore();
   const { t } = useTranslation();
   
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [step, setStep] = useState<'register' | 'verify'>('register');
   
   const [fullNameError, setFullNameError] = useState('');
-  const [emailError, setEmailError] = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [verificationCodeError, setVerificationCodeError] = useState('');
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -79,15 +84,29 @@ export default function RegisterScreen() {
       setFullNameError('');
     }
     
-    // Email validation
-    if (!email.trim()) {
-      setEmailError(t('auth.emailRequired'));
+    // Username validation
+    if (!username.trim()) {
+      setUsernameError(t('auth.usernameRequired'));
       isValid = false;
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      setEmailError(t('auth.emailInvalid'));
+    } else if (username.length < 3) {
+      setUsernameError(t('auth.usernameTooShort'));
+      isValid = false;
+    } else if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      setUsernameError(t('auth.usernameInvalid'));
       isValid = false;
     } else {
-      setEmailError('');
+      setUsernameError('');
+    }
+    
+    // Phone number validation
+    if (!phoneNumber.trim()) {
+      setPhoneError(t('auth.phoneRequired'));
+      isValid = false;
+    } else if (!/^\+?[1-9]\d{1,14}$/.test(phoneNumber.replace(/\s/g, ''))) {
+      setPhoneError(t('auth.phoneInvalid'));
+      isValid = false;
+    } else {
+      setPhoneError('');
     }
     
     // Password validation
@@ -125,11 +144,50 @@ export default function RegisterScreen() {
           return;
         }
         
-        // Sử dụng fullName cho backend
-        await register(fullName, email, password);
+        // Gửi mã xác thực SMS
+        await sendVerificationCode(phoneNumber);
+        setStep('verify');
+        
+        // Hiển thị thông báo development mode
+        if (__DEV__) {
+          Alert.alert(
+            'Development Mode', 
+            'SMS Service đang ở chế độ Development.\n\nMã xác thực cố định: 123456\n\nKiểm tra console backend để xem chi tiết.',
+            [{ text: 'OK' }]
+          );
+        }
       } catch (err) {
         Alert.alert(t('auth.registrationError'), getErrorMessage(err));
       }
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!verificationCode.trim()) {
+      setVerificationCodeError(t('auth.verificationCodeRequired'));
+      return;
+    }
+
+    if (verificationCode.length !== 6) {
+      setVerificationCodeError(t('auth.verificationCodeInvalid'));
+      return;
+    }
+
+    try {
+      // Xác thực mã và đăng ký
+      await verifyCode(phoneNumber, verificationCode);
+      await register(fullName, phoneNumber, password, username);
+    } catch (err) {
+      Alert.alert(t('auth.verificationError'), getErrorMessage(err));
+    }
+  };
+
+  const handleResendCode = async () => {
+    try {
+      await sendVerificationCode(phoneNumber);
+      Alert.alert(t('auth.success'), t('auth.verificationCodeSent'));
+    } catch (err) {
+      Alert.alert(t('auth.error'), getErrorMessage(err));
     }
   };
 
@@ -149,65 +207,116 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.title}>{t('register.createAccount')}</Text>
-            <Text style={styles.subtitle}>{t('register.signUpToGetStarted')}</Text>
+            <Text style={styles.title}>
+              {step === 'register' ? t('register.createAccount') : t('auth.verifyPhone')}
+            </Text>
+            <Text style={styles.subtitle}>
+              {step === 'register' ? t('register.signUpToGetStarted') : t('auth.enterVerificationCode')}
+            </Text>
           </View>
           
           <View style={styles.form}>
-            <Input
-              label={t('register.fullName')}
-              placeholder={t('register.enterYourFullName')}
-              value={fullName}
-              onChangeText={setFullName}
-              autoCapitalize="words"
-              error={fullNameError}
-              leftIcon={<User size={20} color={colors.textLight} />}
-            />
-            
-            <Input
-              label={t('register.email')}
-              placeholder={t('register.enterYourEmail')}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              error={emailError}
-              leftIcon={<Mail size={20} color={colors.textLight} />}
-            />
-            
-            <Input
-              label={t('register.password')}
-              placeholder={t('register.createAPassword')}
-              value={password}
-              onChangeText={setPassword}
-              isPassword
-              error={passwordError}
-              leftIcon={<Lock size={20} color={colors.textLight} />}
-            />
-            
-            <Input
-              label={t('register.confirmPassword')}
-              placeholder={t('register.confirmYourPassword')}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              isPassword
-              error={confirmPasswordError}
-              leftIcon={<Lock size={20} color={colors.textLight} />}
-            />
-            
-            <Button
-              title={t('register.signUp')}
-              onPress={handleRegister}
-              isLoading={isLoading}
-              style={styles.registerButton}
-            />
+            {step === 'register' ? (
+              <>
+                <Input
+                  label={t('register.fullName')}
+                  placeholder={t('register.enterYourFullName')}
+                  value={fullName}
+                  onChangeText={setFullName}
+                  autoCapitalize="words"
+                  error={fullNameError}
+                  leftIcon={<User size={20} color={colors.textLight} />}
+                />
+                
+                <Input
+                  label={t('auth.username')}
+                  placeholder={t('auth.enterUsername')}
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                  error={usernameError}
+                  leftIcon={<AtSign size={20} color={colors.textLight} />}
+                />
+                
+                <Input
+                  label={t('auth.phoneNumber')}
+                  placeholder={t('auth.enterPhoneNumber')}
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  keyboardType="phone-pad"
+                  autoCapitalize="none"
+                  error={phoneError}
+                  leftIcon={<Phone size={20} color={colors.textLight} />}
+                />
+                
+                <Input
+                  label={t('register.password')}
+                  placeholder={t('register.createAPassword')}
+                  value={password}
+                  onChangeText={setPassword}
+                  isPassword
+                  error={passwordError}
+                  leftIcon={<Lock size={20} color={colors.textLight} />}
+                />
+                
+                <Input
+                  label={t('register.confirmPassword')}
+                  placeholder={t('register.confirmYourPassword')}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  isPassword
+                  error={confirmPasswordError}
+                  leftIcon={<Lock size={20} color={colors.textLight} />}
+                />
+                
+                <Button
+                  title={t('auth.sendVerificationCode')}
+                  onPress={handleRegister}
+                  isLoading={isLoading}
+                  style={styles.registerButton}
+                />
+              </>
+            ) : (
+              <>
+                <Input
+                  label={t('auth.verificationCode')}
+                  placeholder={t('auth.enterVerificationCode')}
+                  value={verificationCode}
+                  onChangeText={setVerificationCode}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  error={verificationCodeError}
+                  leftIcon={<MessageSquare size={20} color={colors.textLight} />}
+                />
+                
+                <Button
+                  title={t('auth.verifyAndRegister')}
+                  onPress={handleVerifyCode}
+                  isLoading={isLoading}
+                  style={styles.registerButton}
+                />
+                
+                <TouchableOpacity onPress={handleResendCode} style={styles.resendButton}>
+                  <Text style={styles.resendText}>{t('auth.resendCode')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
           
           <View style={styles.footer}>
-            <Text style={styles.footerText}>{t('register.alreadyHaveAnAccount')}</Text>
-            <TouchableOpacity onPress={handleLogin}>
-              <Text style={styles.loginText}>{t('register.signIn')}</Text>
-            </TouchableOpacity>
+            {step === 'register' && (
+              <>
+                <Text style={styles.footerText}>{t('register.alreadyHaveAnAccount')}</Text>
+                <TouchableOpacity onPress={handleLogin}>
+                  <Text style={styles.loginText}>{t('register.signIn')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {step === 'verify' && (
+              <TouchableOpacity onPress={() => setStep('register')}>
+                <Text style={styles.loginText}>{t('auth.backToRegister')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -247,6 +356,15 @@ const styles = StyleSheet.create({
   },
   registerButton: {
     marginTop: 16,
+  },
+  resendButton: {
+    marginTop: 16,
+    alignSelf: 'center',
+  },
+  resendText: {
+    color: colors.primary,
+    fontSize: 14,
+    textDecorationLine: 'underline',
   },
   footer: {
     marginTop: 'auto',

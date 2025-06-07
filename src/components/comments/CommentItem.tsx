@@ -65,22 +65,28 @@ export const CommentItem: React.FC<CommentItemProps> = ({
           />
           <View style={styles.userInfo}>
             <Text style={styles.username}>
-              {comment.user?.fullname || comment.user?.email || t('posts.defaultUser')}
+              {comment.user?.fullname || comment.user?.phoneNumber || t('posts.defaultUser')}
             </Text>
             <Text style={styles.timestamp}>
               {formatTime(comment.createdAt)}
             </Text>
           </View>
           {isOwner && (
-            <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
-              <Ionicons name="trash-outline" size={16} color="#FF6B6B" />
+            <TouchableOpacity 
+              onPress={handleDelete} 
+              style={styles.deleteButton}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.6}
+            >
+              <Ionicons name="trash-outline" size={18} color="#333333" />
             </TouchableOpacity>
           )}
         </View>
-
-        <Text style={styles.commentText}>
-          {comment.text}
-        </Text>
+        {comment.text && comment.text.trim() && (
+          <Text style={styles.commentText}>
+            {comment.text}
+          </Text>
+        )}
 
         {comment.image && (
           <Image 
@@ -131,7 +137,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   deleteButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: 'rgba(51, 51, 51, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(51, 51, 51, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 32,
+    minHeight: 32,
   },
   commentText: {
     fontSize: 14,

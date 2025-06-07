@@ -40,12 +40,12 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      register: async (fullName: string, email: string, password: string) => {
+      register: async (fullName: string, phoneNumber: string, password: string, username: string) => {
         set({ isLoading: true, error: null });
         
         try {
-          // Call the register API with fullName
-          const response = await api.auth.register(fullName, email, password);
+          // Call the register API with fullName, phoneNumber, password, and username
+          const response = await api.auth.register(fullName, phoneNumber, password, username);
           
           if (response.error) {
             throw new Error(response.error);
@@ -73,10 +73,10 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      login: async (email: string, password: string) => {
+      login: async (login: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await api.auth.login(email, password);
+          const response = await api.auth.login(login, password);
           if (response.error) {
             throw new Error(response.error);
           }
@@ -99,6 +99,40 @@ export const useAuthStore = create<AuthState>()(
             error: error instanceof Error ? error.message : 'Login failed', 
             isLoading: false 
           });
+        }
+      },
+
+      sendVerificationCode: async (phoneNumber: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await api.auth.sendVerificationCode(phoneNumber);
+          if (response.error) {
+            throw new Error(response.error);
+          }
+          set({ isLoading: false });
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to send verification code', 
+            isLoading: false 
+          });
+          throw error;
+        }
+      },
+
+      verifyCode: async (phoneNumber: string, code: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await api.auth.verifyCode(phoneNumber, code);
+          if (response.error) {
+            throw new Error(response.error);
+          }
+          set({ isLoading: false });
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to verify code', 
+            isLoading: false 
+          });
+          throw error;
         }
       },
 

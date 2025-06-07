@@ -11,13 +11,12 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, UserPlus, UserMinus } from 'lucide-react-native';
+import { ChevronLeft, UserPlus, UserMinus, UserCheck, UserX } from 'lucide-react-native';
 
 import { useAuthStore } from '../../store/authStore';
 import { usePostStore } from '../../store/postStore';
 import { colors } from '../../constants/colors';
-import { getUserProfileById, sendFriendRequest, unfriendUser } from '../../services/userService';
-import { getUserPosts } from '../../services/postService';
+import { getUserProfileById, sendFriendRequest, unfriendUser, cancelFriendRequest, respondToFriendRequest } from '../../services/userService';
 import { Post, User } from '../../types';
 import { useTranslation } from '../../i18n';
 
@@ -91,6 +90,45 @@ export default function UserProfileScreen() {
     
     setIsLoading(false);
   };
+
+  const handleCancelRequest = async () => {
+    if (!profileUser?.requestId) return;
+    
+    setIsLoading(true);
+    const response = await cancelFriendRequest(profileUser.requestId);
+    if (response.success) {
+      setFriendStatus('none');
+      // Update profileUser to remove requestId and isRequestSender
+      setProfileUser(prev => prev ? { ...prev, requestId: undefined, isRequestSender: undefined } : null);
+    }
+    setIsLoading(false);
+  };
+
+  const handleAcceptRequest = async () => {
+    if (!profileUser?.requestId) return;
+    
+    setIsLoading(true);
+    const response = await respondToFriendRequest(profileUser.requestId, 'accept');
+    if (response.success) {
+      setFriendStatus('accepted');
+      // Update profileUser to remove requestId and isRequestSender
+      setProfileUser(prev => prev ? { ...prev, requestId: undefined, isRequestSender: undefined } : null);
+    }
+    setIsLoading(false);
+  };
+
+  const handleRejectRequest = async () => {
+    if (!profileUser?.requestId) return;
+    
+    setIsLoading(true);
+    const response = await respondToFriendRequest(profileUser.requestId, 'reject');
+    if (response.success) {
+      setFriendStatus('rejected');
+      // Update profileUser to remove requestId and isRequestSender
+      setProfileUser(prev => prev ? { ...prev, requestId: undefined, isRequestSender: undefined } : null);
+    }
+    setIsLoading(false);
+  };
   
   const handleViewPost = (postId: string) => {
     router.push(`/post/${postId}`);
@@ -143,28 +181,58 @@ export default function UserProfileScreen() {
           </View>
           
           {user && profileUser && user.id !== profileUser.id && (
-            <TouchableOpacity 
-              style={[
-                styles.friendButton,
-                friendStatus === 'accepted' ? styles.unfriendButton : styles.addFriendButton
-              ]}
-              onPress={handleToggleFriend}
-              disabled={isLoading || friendStatus === 'pending'}
-            >
+            <>
               {friendStatus === 'accepted' ? (
-                <>
+                <TouchableOpacity 
+                  style={[styles.friendButton, styles.unfriendButton]}
+                  onPress={handleToggleFriend}
+                  disabled={isLoading}
+                >
                   <UserMinus size={16} color="white" />
                   <Text style={styles.friendButtonText}>{t('profile.removeFriend')}</Text>
-                </>
+                </TouchableOpacity>
               ) : friendStatus === 'pending' ? (
-                <Text style={styles.friendButtonText}>{t('profile.requestPending')}</Text>
+                profileUser.isRequestSender ? (
+                  // Current user sent the request - show Cancel Request button
+                  <TouchableOpacity 
+                    style={[styles.friendButton, styles.cancelButton]}
+                    onPress={handleCancelRequest}
+                    disabled={isLoading}
+                  >
+                    <Text style={styles.friendButtonText}>{t('profile.cancelRequest')}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  // Current user received the request - show Accept and Reject buttons
+                  <View style={styles.requestButtonsContainer}>
+                    <TouchableOpacity 
+                      style={[styles.requestButton, styles.acceptButton]}
+                      onPress={handleAcceptRequest}
+                      disabled={isLoading}
+                    >
+                      <UserCheck size={16} color="white" />
+                      <Text style={styles.requestButtonText}>{t('profile.acceptRequest')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.requestButton, styles.rejectButton]}
+                      onPress={handleRejectRequest}
+                      disabled={isLoading}
+                    >
+                      <UserX size={16} color="white" />
+                      <Text style={styles.requestButtonText}>{t('profile.rejectRequest')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )
               ) : (
-                <>
+                <TouchableOpacity 
+                  style={[styles.friendButton, styles.addFriendButton]}
+                  onPress={handleToggleFriend}
+                  disabled={isLoading}
+                >
                   <UserPlus size={16} color="white" />
                   <Text style={styles.friendButtonText}>{t('profile.addFriend')}</Text>
-                </>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
+            </>
           )}
         </View>
         
@@ -273,6 +341,37 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     marginLeft: 8,
+  },
+  cancelButton: {
+    backgroundColor: colors.secondary,
+  },
+  requestButtonsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  requestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    flex: 1,
+  },
+  acceptButton: {
+    backgroundColor: colors.primary,
+  },
+  rejectButton: {
+    backgroundColor: '#dc3545',
+  },
+  requestButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    marginLeft: 6,
+    fontSize: 14,
+    textAlign: 'center',
   },
   contentHeader: {
     flexDirection: 'row',

@@ -13,7 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Mail, Lock } from 'lucide-react-native';
+import { Phone, Lock } from 'lucide-react-native';
 
 import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
@@ -27,9 +27,9 @@ export default function LoginScreen() {
   const { login, isLoading, error, clearError, isAuthenticated } = useAuthStore();
   const { t } = useTranslation();
   
-  const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
-  const [emailError, setEmailError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
@@ -64,15 +64,15 @@ export default function LoginScreen() {
   const validateForm = () => {
     let isValid = true;
     
-    // Email validation
-    if (!email.trim()) {
-      setEmailError(t('auth.emailRequired'));
+    // Phone number validation
+    if (!phoneNumber.trim()) {
+      setPhoneError(t('auth.phoneRequired'));
       isValid = false;
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      setEmailError(t('auth.emailInvalid'));
+    } else if (!/^\+?[1-9]\d{1,14}$/.test(phoneNumber.replace(/\s/g, ''))) {
+      setPhoneError(t('auth.phoneInvalid'));
       isValid = false;
     } else {
-      setEmailError('');
+      setPhoneError('');
     }
     
     // Password validation
@@ -102,7 +102,7 @@ export default function LoginScreen() {
           return;
         }
         
-        await login(email, password);
+        await login(phoneNumber, password);
       } catch (err) {
         Alert.alert(t('auth.loginError'), getErrorMessage(err));
       }
@@ -131,14 +131,14 @@ export default function LoginScreen() {
           
           <View style={styles.form}>
             <Input
-              label={t('auth.email')}
-              placeholder={t('auth.enterEmail')}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
+              label={t('auth.phoneNumber')}
+              placeholder={t('auth.enterPhoneNumber')}
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              keyboardType="phone-pad"
               autoCapitalize="none"
-              error={emailError}
-              leftIcon={<Mail size={20} color={colors.textLight} />}
+              error={phoneError}
+              leftIcon={<Phone size={20} color={colors.textLight} />}
             />
             
             <Input

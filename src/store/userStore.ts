@@ -30,15 +30,11 @@ interface UserState {
   searchUsers: (query: string, page?: number, limit?: number) => Promise<void>;
   sendFriendRequest: (userId: string) => Promise<{ success: boolean, message: string }>;
   respondToFriendRequest: (requestId: string, action: 'accept' | 'reject') => Promise<{ success: boolean, message: string }>;
-  unfriendUser: (friendId: string) => Promise<{ success: boolean, message: string }>;
-  clearError: () => void;  updateUserSettings: (settings: {
+  unfriendUser: (friendId: string) => Promise<{ success: boolean, message: string }>;  clearError: () => void;
+  updateUserSettings: (settings: {
     notificationRadius: number;
-    pushNotifications: boolean;
-    emailNotifications: boolean;
     language?: 'en' | 'vi';
   }) => Promise<void>;
-  updateUserEmail: (email: string) => Promise<void>;
-  updateUserPassword: (currentPassword: string, newPassword: string) => Promise<void>;
   updateUsername: (username: string) => Promise<void>;
   updateFullname: (fullname: string) => Promise<void>;
   updateBio: (bio: string) => Promise<void>;
@@ -71,10 +67,8 @@ export const useUserStore = create<UserState>()(
           const user = await userService.getCurrentUserProfile();
           console.log('User from backend:', user);
             if (user) {
-            let finalSettings = user.settings || {
+              let finalSettings = user.settings || {
               notificationRadius: 5,
-              pushNotifications: true,
-              emailNotifications: true,
               language: 'vi' as 'en' | 'vi'
             };
 
@@ -279,36 +273,6 @@ export const useUserStore = create<UserState>()(
           set({ isLoading: false });
         }
       },
-      
-      // Cập nhật email người dùng
-      updateUserEmail: async (email) => {
-        try {
-          set({ isLoading: true, error: null });
-          const updatedUser = await userService.updateUserEmail(email);
-          if (updatedUser) {
-            set({ currentUser: updatedUser });
-          }
-        } catch (error) {
-          set({ error: error instanceof Error ? error.message : 'Failed to update email' });
-          throw error;
-        } finally {
-          set({ isLoading: false });
-        }
-      },
-      
-      // Cập nhật mật khẩu người dùng
-      updateUserPassword: async (currentPassword, newPassword) => {
-        try {
-          set({ isLoading: true, error: null });
-          await userService.updateUserPassword(currentPassword, newPassword);
-        } catch (error) {
-          set({ error: error instanceof Error ? error.message : 'Failed to update password' });
-          throw error;
-        } finally {
-          set({ isLoading: false });
-        }
-      },
-      
       // Cập nhật tên người dùng
       updateUsername: async (username) => {
         try {

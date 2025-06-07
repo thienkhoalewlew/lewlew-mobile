@@ -85,7 +85,7 @@ export default function FriendsScreen() {
         {item.bio ? (
           <Text style={styles.userBio} numberOfLines={1}>{item.bio}</Text>
         ) : (
-          <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
+          <Text style={styles.userPhone} numberOfLines={1}>{item.phoneNumber}</Text>
         )}
       </View>
     </TouchableOpacity>
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  userEmail: {
+  userPhone: {
     fontSize: 14,
     color: colors.textLight,
     marginTop: 2,
