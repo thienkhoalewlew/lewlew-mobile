@@ -150,6 +150,7 @@ export enum NotificationType {
   POST_COMMENT = 'POST_COMMENT',
   POST_VIRAL = 'POST_VIRAL',
   FRIEND_POST = 'FRIEND_POST',
+  SYSTEM_NOTIFICATION = 'SYSTEM_NOTIFICATION',
 }
 
 export interface NotificationState {
@@ -165,4 +166,57 @@ export interface NotificationState {
   initializeSocket: (token: string) => void;
   disconnectSocket: () => void;
   addNotification: (notification: Notification) => void;
+}
+
+export interface Report {
+  id: string;
+  postId: string;
+  reporterId: string;
+  reason: ReportReason;
+  description?: string;
+  status: ReportStatus;
+  aiAnalysis?: {
+    shouldAutoDelete: boolean;
+    confidenceScore: number;
+    prediction: string;
+    analysis: {
+      textAnalysis: any;
+      imageAnalysis: any;
+      metadata: any;
+    };
+  };
+  reviewedBy?: string;
+  reviewedAt?: Date;
+  resolvedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export enum ReportReason {
+  INAPPROPRIATE_CONTENT = 'inappropriate_content',
+  VIOLENCE = 'violence',
+  GORE = 'gore',
+  BLOOD = 'blood',
+  GRAPHIC_VIOLENCE = 'graphic_violence'
+}
+
+export enum ReportStatus {
+  PENDING = 'pending',
+  UNDER_REVIEW = 'under_review',
+  RESOLVED = 'resolved',
+  REJECTED = 'rejected',
+  AUTO_RESOLVED = 'auto_resolved'
+}
+
+export interface CreateReportData {
+  postId: string;
+  reason: ReportReason;
+}
+
+export interface ReportState {
+  reports: Report[];
+  loading: boolean;
+  error: string | null;
+  reportPost: (reportData: CreateReportData) => Promise<boolean>;
+  clearError: () => void;
 }

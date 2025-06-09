@@ -34,6 +34,7 @@ import { getUserById } from '../../services/userService';
 import { CommentList, CreateComment } from '../../components/comments';
 import { useTranslation } from '../../i18n';
 import { isPostWithinNotificationRadius } from '../../utils/distanceUtils';
+import { ReportModal } from '../../components/ReportModal';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -54,6 +55,7 @@ export default function PostDetailScreen() {
   const [imageLoading, setImageLoading] = useState(true);
   const [commentsPage, setCommentsPage] = useState(1);
   const [loadingMoreComments, setLoadingMoreComments] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   
   // Format time with proper locale
   const formatTime = (dateString: string | Date) => {
@@ -323,7 +325,7 @@ export default function PostDetailScreen() {
             if (isOwner) {
               handleDeletePost();
             } else {
-              Alert.alert(t('posts.reportTitle'), t('posts.reportMessage'));
+              setShowReportModal(true);
             }
           }
         }
@@ -344,7 +346,7 @@ export default function PostDetailScreen() {
           t('posts.postOptionsMessage'),
           [
             { text: t('common.cancel'), style: 'cancel' },
-            { text: t('posts.reportPost'), onPress: () => Alert.alert(t('posts.reportTitle'), t('posts.reportMessage')) }
+            { text: t('posts.reportPost'), onPress: () => setShowReportModal(true) }
           ]
         );
       }
@@ -651,6 +653,18 @@ export default function PostDetailScreen() {
           }}
         />
       </KeyboardAvoidingView>
+
+      {/* Report Modal */}
+      <ReportModal
+        visible={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        postId={post.id}
+        postAuthor={postUser?.fullname || postUser?.username || 'Unknown User'}
+        onReportSuccess={() => {
+          // Navigate to home screen after successful report
+          router.replace('/(tabs)');
+        }}
+      />
     </SafeAreaView>
   );
 }

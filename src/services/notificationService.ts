@@ -96,6 +96,18 @@ import { api } from "./api";
         case 'friend_post':
             notificationType = 'FRIEND_POST';
             break;
+        case 'post_removed':
+            notificationType = 'SYSTEM_NOTIFICATION';
+            break;
+        case 'report_approved':
+            notificationType = 'SYSTEM_NOTIFICATION';
+            break;
+        case 'report_rejected':
+            notificationType = 'SYSTEM_NOTIFICATION';
+            break;
+        case 'report_under_review':
+            notificationType = 'SYSTEM_NOTIFICATION';
+            break;
         default:
             notificationType = 'FRIEND_REQUEST';
     }

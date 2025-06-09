@@ -19,6 +19,7 @@ import { ensureStringId } from '../services/postService';
 import { useCommentStore } from '../store/commentStore';
 import { useLocationStore } from '../store/locationStore';
 import { useTranslation } from '../i18n';
+import { ReportModal } from './ReportModal';
 
 interface PostCardProps {
   post: Post;
@@ -44,6 +45,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   
   const [isLiked, setIsLiked] = useState<boolean>(false);
   const [likesCount, setLikesCount] = useState<number>(0);
+  const [showReportModal, setShowReportModal] = useState<boolean>(false);
   
   // Get actual comment count from comment store
   const actualCommentCount = comments[post.id]?.length || post.comments.length;
@@ -153,7 +155,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             if (isOwner) {
               handleDeletePost();
             } else {
-              Alert.alert(t('posts.reportTitle'), t('posts.reportMessage'));
+              setShowReportModal(true);
             }
           }
         }
@@ -174,7 +176,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           t('posts.postOptionsMessage'),
           [
             { text: t('common.cancel'), style: 'cancel' },
-            { text: t('posts.reportPost'), onPress: () => Alert.alert(t('posts.reportTitle'), t('posts.reportMessage')) }
+            { text: t('posts.reportPost'), onPress: () => setShowReportModal(true) }
           ]
         );
       }
@@ -262,6 +264,14 @@ export const PostCard: React.FC<PostCardProps> = ({
           {actualCommentCount} {actualCommentCount === 1 ? t('posts.comment_singular') : t('posts.comment_plural')}
         </Text>
       </View>
+
+      {/* Report Modal */}
+      <ReportModal
+        visible={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        postId={post.id}
+        postAuthor={post.user?.fullname || post.user?.username || 'Unknown User'}
+      />
     </View>
   );
 };

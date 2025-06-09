@@ -21,6 +21,7 @@ interface LocationInputProps {
   onLocationNameChange: (name: string) => void;
   onRefreshLocation: () => Promise<void>;
   isLoading?: boolean;
+  showDetailedInfo?: boolean;
 }
 
 export const LocationInput: React.FC<LocationInputProps> = ({
@@ -30,6 +31,7 @@ export const LocationInput: React.FC<LocationInputProps> = ({
   onLocationNameChange,
   onRefreshLocation,
   isLoading = false,
+  showDetailedInfo = true,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempLocationName, setTempLocationName] = useState(locationName);
@@ -319,10 +321,9 @@ export const LocationInput: React.FC<LocationInputProps> = ({
             📍 Coordinates: {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
           </Text>
         )}
-        
-        {currentLocationName && !isEditing && (
+          {currentLocationName && !isEditing && (
           <Text style={styles.locationDetected}>
-            🎯 Detected: {currentLocationName}
+            🎯 Auto-detected: {currentLocationName}
           </Text>
         )}
         

@@ -764,5 +764,103 @@ export const api = {
         return { error: 'Network error. Please check your connection.' };
       }
     },
-  }
+  },
+
+  // Report APIs
+  reports: {
+    // Create a new report
+    createReport: async (reportData: {
+      postId: string;
+      reason: string;
+      description?: string;
+    }): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/reports`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(reportData),
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Create report error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Get all reports (Admin only)
+    getReports: async (
+      page: number = 1,
+      limit: number = 10,
+      status?: string,
+      reason?: string
+    ): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        let url = `${API_URL}/reports?page=${page}&limit=${limit}`;
+        
+        if (status) url += `&status=${status}`;
+        if (reason) url += `&reason=${reason}`;
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Get reports error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Get report statistics (Admin only)
+    getReportStats: async (): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/reports/stats`, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Get report stats error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Update report status (Admin only)
+    updateReportStatus: async (
+      reportId: string,
+      status: string,
+      adminNotes?: string
+    ): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/reports/${reportId}/status`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ status, adminNotes }),
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Update report status error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Get report details by ID (Admin only)
+    getReportById: async (reportId: string): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/reports/${reportId}`, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Get report by ID error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+  },
 };

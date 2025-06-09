@@ -207,7 +207,7 @@ export default function NotificationsScreen() {
             Alert.alert(t('notifications.notification'), t('notifications.cannotOpenPost'));
           }
           break;
-        case NotificationType.POST_VIRAL:
+          case NotificationType.POST_VIRAL:
         case NotificationType.FRIEND_POST:
           if (validPostId) {
             console.log('Navigating to post with ID:', validPostId);
@@ -217,6 +217,19 @@ export default function NotificationsScreen() {
             });
           } else {
             Alert.alert(t('notifications.notification'), t('notifications.cannotOpenPost'));
+          }
+          break;
+        case NotificationType.SYSTEM_NOTIFICATION:
+          // For system notifications, try to navigate to the post if available
+          if (validPostId) {
+            console.log('Navigating to post from system notification with ID:', validPostId);
+            router.push({
+              pathname: '/post/[id]',
+              params: { id: validPostId }
+            });
+          } else {
+            // If no post ID, just show an info message
+            Alert.alert(t('notifications.system'), t('notifications.newNotification'));
           }
           break;
       }
@@ -241,44 +254,56 @@ export default function NotificationsScreen() {
       return format(date, 'dd/MM/yyyy', { locale: language === 'vi' ? vi : undefined });
     }
   };
-  
-  const renderItem = ({ item }: { item: Notification }) => (
-    <TouchableOpacity
-      style={[styles.notificationItem, !item.read && styles.unreadItem]}
-      onPress={() => handleNotificationPress(item)}
-    >
-      <View style={styles.avatarContainer}>
-        {userData[item.senderId]?.avatar ? (
-          <Image 
-            source={{ uri: userData[item.senderId]?.avatar }} 
-            style={styles.avatar} 
-          />
-        ) : (
-          <View style={[styles.avatar, styles.defaultAvatar]}>
-            <Text style={styles.avatarText}>
-              {item.senderId && typeof item.senderId === 'string' && item.senderId.length > 0 
-                ? item.senderId.charAt(0).toUpperCase() 
-                : '?'}
-            </Text>
-          </View>
-        )}
+    const renderItem = ({ item }: { item: Notification }) => {
+    // Check if this is a system notification
+    const isSystemNotification = !item.senderId || item.senderId === '' || item.senderId === 'system';
+    
+    return (
+      <TouchableOpacity
+        style={[styles.notificationItem, !item.read && styles.unreadItem]}
+        onPress={() => handleNotificationPress(item)}
+      >
+        <View style={styles.avatarContainer}>
+          {isSystemNotification ? (
+            // System notification icon
+            <View style={[styles.avatar, styles.systemAvatar]}>
+              <Text style={styles.systemAvatarText}>⚙️</Text>
+            </View>
+          ) : userData[item.senderId]?.avatar ? (
+            <Image 
+              source={{ uri: userData[item.senderId]?.avatar }} 
+              style={styles.avatar} 
+            />
+          ) : (
+            <View style={[styles.avatar, styles.defaultAvatar]}>
+              <Text style={styles.avatarText}>
+                {item.senderId && typeof item.senderId === 'string' && item.senderId.length > 0 
+                  ? item.senderId.charAt(0).toUpperCase() 
+                  : '?'}
+              </Text>
+            </View>
+          )}
+          
+          {!item.read && <View style={styles.unreadDot} />}
+        </View>
         
-        {!item.read && <View style={styles.unreadDot} />}
-      </View>
-      
-      <View style={styles.contentContainer}>
-        <Text style={styles.message}>
-          <Text style={styles.username}>
-            {item.senderId && userData[item.senderId]?.username || 
-            item.senderId && userData[item.senderId]?.fullname || 
-            t('notifications.someone')}
+        <View style={styles.contentContainer}>
+          <Text style={styles.message}>
+            <Text style={styles.username}>
+              {isSystemNotification 
+                ? t('notifications.system')
+                : (userData[item.senderId]?.username || 
+                   userData[item.senderId]?.fullname || 
+                   t('notifications.someone'))
+              }
+            </Text>
+            <Text>{' '}{translateMessage(item.message)}</Text>
           </Text>
-          <Text>{' '}{translateMessage(item.message)}</Text>
-        </Text>
-        <Text style={styles.time}>{formatTime(new Date(item.createdAt))}</Text>
-      </View>
-    </TouchableOpacity>
-  );
+          <Text style={styles.time}>{formatTime(new Date(item.createdAt))}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
     const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyText}>{t('notifications.noNotifications')}</Text>
@@ -386,6 +411,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#ddd',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  systemAvatar: {
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  systemAvatarText: {
+    fontSize: 20,
   },
   avatarText: {
     fontSize: 18,

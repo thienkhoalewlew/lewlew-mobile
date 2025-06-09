@@ -46,7 +46,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     console.log('NotificationProvider: Showing notification for senderId:', notification.senderId);
     setActiveNotification(notification);
     
-    // Fetch sender information
+    // Check if this is a system notification (no senderId)
+    if (!notification.senderId || notification.senderId === '' || notification.senderId === 'system') {
+      setSenderName('System');
+      setSenderAvatar('');
+      console.log('NotificationProvider: System notification detected, using "System" as sender');
+      return;
+    }
+    
+    // Fetch sender information for user notifications
     try {
       const user = await getUserById(notification.senderId);
       console.log('NotificationProvider: Retrieved user data:', user);

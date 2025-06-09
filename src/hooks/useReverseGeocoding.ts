@@ -6,17 +6,17 @@ import { LocationHistoryService } from '../services/locationHistoryService';
 interface UseReverseGeocodingOptions {
   autoUpdate?: boolean;
   onLocationNameChange?: (name: string | null) => void;
+  addressLevel?: 'minimal' | 'short' | 'detailed' | 'full';
 }
 
 export const useReverseGeocoding = (options: UseReverseGeocodingOptions = {}) => {
-  const { autoUpdate = true, onLocationNameChange } = options;
+  const { autoUpdate = true, onLocationNameChange, addressLevel = 'detailed' } = options;
   const { currentLocation, getCurrentLocation } = useLocationStore();
   
   const [isLoading, setIsLoading] = useState(false);
   const [locationName, setLocationName] = useState<string | null>(null);
   const [geocodingResult, setGeocodingResult] = useState<GeocodingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   // Reverse geocode function
   const reverseGeocode = useCallback(async (latitude?: number, longitude?: number) => {
     const lat = latitude ?? currentLocation?.latitude;
@@ -31,22 +31,24 @@ export const useReverseGeocoding = (options: UseReverseGeocodingOptions = {}) =>
     setError(null);
     
     try {
-      const result = await GeocodingService.reverseGeocode(lat, lng);
+      // Use the improved geocoding with fallback
+      const result = await GeocodingService.reverseGeocodeWithFallback(lat, lng);
         if (result) {
-        const shortAddress = GeocodingService.getShortAddress(result);
-        setLocationName(shortAddress);
+        // Use the specified address level
+        const formattedAddress = GeocodingService.getAddressByLevel(result, addressLevel);
+        setLocationName(formattedAddress);
         setGeocodingResult(result);
-        onLocationNameChange?.(shortAddress);
+        onLocationNameChange?.(formattedAddress);
         
         // Add to location history
         await LocationHistoryService.addToHistory(
-          shortAddress,
+          formattedAddress,
           lat,
           lng,
           true // Auto-detected location
         );
         
-        return shortAddress;
+        return formattedAddress;
       } else {
         setError('Could not determine location name');
         return null;
@@ -81,7 +83,6 @@ export const useReverseGeocoding = (options: UseReverseGeocodingOptions = {}) =>
       reverseGeocode();
     }
   }, [currentLocation, autoUpdate, reverseGeocode, isLoading]);
-
   // Get detailed address
   const getDetailedAddress = useCallback(() => {
     return geocodingResult ? GeocodingService.getDetailedAddress(geocodingResult) : null;
@@ -90,6 +91,16 @@ export const useReverseGeocoding = (options: UseReverseGeocodingOptions = {}) =>
   // Get short address
   const getShortAddress = useCallback(() => {
     return geocodingResult ? GeocodingService.getShortAddress(geocodingResult) : null;
+  }, [geocodingResult]);
+
+  // Get precise address (with street number and name)
+  const getPreciseAddress = useCallback(() => {
+    return geocodingResult ? GeocodingService.getPreciseAddress(geocodingResult) : null;
+  }, [geocodingResult]);
+
+  // Get address by specific level
+  const getAddressByLevel = useCallback((level: 'minimal' | 'short' | 'detailed' | 'full') => {
+    return geocodingResult ? GeocodingService.getAddressByLevel(geocodingResult, level) : null;
   }, [geocodingResult]);
 
   return {
@@ -105,6 +116,8 @@ export const useReverseGeocoding = (options: UseReverseGeocodingOptions = {}) =>
     refreshLocation,
     getDetailedAddress,
     getShortAddress,
+    getPreciseAddress,
+    getAddressByLevel,
     
     // Helper functions
     clearError: () => setError(null),

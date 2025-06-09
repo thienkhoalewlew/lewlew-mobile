@@ -37,16 +37,18 @@ export default function CreatePostScreen() {
   const [image, setImage] = useState<string | null>(null);
   const [caption, setCaption] = useState('');
   const [locationNameInput, setLocationNameInput] = useState('');
-  
-  // Use reverse geocoding hook
+    // Use reverse geocoding hook with detailed address level
   const {
     isLoading: isLoadingLocation,
     locationName: autoDetectedLocationName,
     currentLocation,
     refreshLocation,
     error: locationError,
+    getPreciseAddress,
+    getAddressByLevel,
   } = useReverseGeocoding({
     autoUpdate: true,
+    addressLevel: 'detailed', // Use detailed level for better street info
     onLocationNameChange: (name) => {
       if (name && !locationNameInput) {
         setLocationNameInput(name);
