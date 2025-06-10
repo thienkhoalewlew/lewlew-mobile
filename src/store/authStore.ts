@@ -136,6 +136,58 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      // Forgot Password methods
+      sendForgotPasswordCode: async (phoneNumber: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await api.auth.sendForgotPasswordCode(phoneNumber);
+          if (response.error) {
+            throw new Error(response.error);
+          }
+          set({ isLoading: false });
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to send forgot password code', 
+            isLoading: false 
+          });
+          throw error;
+        }
+      },
+
+      verifyForgotPasswordCode: async (phoneNumber: string, code: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await api.auth.verifyForgotPasswordCode(phoneNumber, code);
+          if (response.error) {
+            throw new Error(response.error);
+          }
+          set({ isLoading: false });
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to verify forgot password code', 
+            isLoading: false 
+          });
+          throw error;
+        }
+      },
+
+      resetPassword: async (phoneNumber: string, code: string, newPassword: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await api.auth.resetPassword(phoneNumber, code, newPassword);
+          if (response.error) {
+            throw new Error(response.error);
+          }
+          set({ isLoading: false });
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to reset password', 
+            isLoading: false 
+          });
+          throw error;
+        }
+      },
+
       logout: () => {
         set({ 
           user: null, 

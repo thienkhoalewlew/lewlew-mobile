@@ -94,6 +94,10 @@ export interface AuthState {
   fetchUserProfile: () => Promise<void>;
   sendVerificationCode: (phoneNumber: string) => Promise<void>;
   verifyCode: (phoneNumber: string, code: string) => Promise<void>;
+  // Forgot Password methods
+  sendForgotPasswordCode: (phoneNumber: string) => Promise<void>;
+  verifyForgotPasswordCode: (phoneNumber: string, code: string) => Promise<void>;
+  resetPassword: (phoneNumber: string, code: string, newPassword: string) => Promise<void>;
 }
 
 export interface PostState {

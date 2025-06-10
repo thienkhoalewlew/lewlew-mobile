@@ -303,6 +303,52 @@ export const api = {
         return { error: 'Network error. Please check your connection.' };
       }
     },
+
+    // Forgot Password APIs
+    sendForgotPasswordCode: async (phoneNumber: string): Promise<ApiResponse<any>> => {
+      try {
+        const response = await fetch(`${API_URL}/auth/forgot-password/send-code`, {
+          method: 'POST',
+          headers: defaultHeaders,
+          body: JSON.stringify({ phoneNumber }),
+        });
+        
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Send forgot password code error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    verifyForgotPasswordCode: async (phoneNumber: string, code: string): Promise<ApiResponse<any>> => {
+      try {
+        const response = await fetch(`${API_URL}/auth/forgot-password/verify-code`, {
+          method: 'POST',
+          headers: defaultHeaders,
+          body: JSON.stringify({ phoneNumber, code }),
+        });
+        
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Verify forgot password code error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    resetPassword: async (phoneNumber: string, code: string, newPassword: string): Promise<ApiResponse<any>> => {
+      try {
+        const response = await fetch(`${API_URL}/auth/forgot-password/reset`, {
+          method: 'POST',
+          headers: defaultHeaders,
+          body: JSON.stringify({ phoneNumber, code, newPassword }),
+        });
+        
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Reset password error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
   },
   
   // Friend relationships APIs
