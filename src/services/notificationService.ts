@@ -74,8 +74,7 @@ import { api } from "./api";
             commentId = String(backendNotification.comment);
         }
     }
-      
-    // Map backend notification types to client enum types
+        // Map backend notification types to client enum types
     let notificationType;
     switch (backendNotification.type) {
         case 'friend_request':
@@ -89,6 +88,9 @@ import { api } from "./api";
             break;
         case 'comment':
             notificationType = 'POST_COMMENT';
+            break;
+        case 'comment_like':
+            notificationType = 'COMMENT_LIKE';
             break;
         case 'nearby_post':
             notificationType = 'POST_VIRAL';

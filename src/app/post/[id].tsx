@@ -180,9 +180,8 @@ export default function PostDetailScreen() {
   // Update like status and load comments
   useEffect(() => {
     if (post && user) {
-      const liked = post.likes.includes(user.id);
-      setIsLiked(liked);
-      setLikesCount(post.likes.length);
+      setIsLiked(post.isLiked || false);
+      setLikesCount(post.likeCount || 0);
     }
     
     // Load comments for this post
@@ -242,7 +241,7 @@ export default function PostDetailScreen() {
     } catch (error) {
       // Revert state on error
       setIsLiked(!isLiked);
-      setLikesCount(post.likes.length);
+      setLikesCount(post.likeCount || 0);
       console.error('Error toggling like:', error);
       Alert.alert(t('common.error'), t('posts.likeError'));
     }
@@ -422,7 +421,7 @@ export default function PostDetailScreen() {
       if (commentsRef.current) {
         // Use a measured offset to scroll to the comments section
         commentsRef.current.scrollTo({ 
-          y: post?.imageUrl ? 800 : 300, // Different offset based on whether there's an image
+          y: post?.image ? 800 : 300, // Different offset based on whether there's an image
           animated: true 
         });
       }
@@ -550,7 +549,7 @@ export default function PostDetailScreen() {
               </View>
             )}
             <Image 
-              source={{ uri: post.imageUrl }} 
+              source={{ uri: post.image }} 
               style={styles.postImage}
               onLoad={() => setImageLoading(false)}
               onError={() => setImageLoading(false)}

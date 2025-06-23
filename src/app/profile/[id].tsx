@@ -17,6 +17,7 @@ import { useAuthStore } from '../../store/authStore';
 import { usePostStore } from '../../store/postStore';
 import { colors } from '../../constants/colors';
 import { getUserProfileById, sendFriendRequest, unfriendUser, cancelFriendRequest, respondToFriendRequest } from '../../services/userService';
+import { getUserPostsById } from '../../services/postService';
 import { Post, User } from '../../types';
 import { useTranslation } from '../../i18n';
 
@@ -57,11 +58,11 @@ export default function UserProfileScreen() {
     try {
       setIsLoading(true);
       
-      // For other users' profiles, only show active posts (not expired)
-      // We get posts from the global posts store which only contains active posts from others
-      const activeUserPosts = posts.filter(post => post.userId === userId);
-      setUserPosts(activeUserPosts);
-      
+      // For other users' profiles, fetch their posts from the API
+      // This ensures we get their actual posts instead of filtering from global store
+      const userPosts = await getUserPostsById(userId, false); // Don't include expired posts for other users
+      setUserPosts(userPosts);
+            
       setIsLoading(false);
     } catch (error) {
       console.error('Error loading posts:', error);
@@ -139,7 +140,7 @@ export default function UserProfileScreen() {
       style={styles.gridItem}
       onPress={() => handleViewPost(item.id)}
     >
-      <Image source={{ uri: item.imageUrl }} style={styles.gridImage} />
+      <Image source={{ uri: item.image }} style={styles.gridImage} />
     </TouchableOpacity>
   );
   

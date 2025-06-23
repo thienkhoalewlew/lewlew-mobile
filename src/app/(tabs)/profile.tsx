@@ -79,7 +79,6 @@ export default function ProfileScreen() {
     try {
       setRefreshing(true);
       const result = await getUserPosts();
-      console.log('Loaded posts:', result);
       if (Array.isArray(result)) {
         setUserPosts(result);
       }
@@ -188,7 +187,7 @@ export default function ProfileScreen() {
         style={styles.gridItem}
         onPress={() => handleViewPost(item.id)}
       >
-        <Image source={{ uri: item.imageUrl }} style={[styles.gridImage, isExpired && styles.expiredImage]} />
+        <Image source={{ uri: item.image }} style={[styles.gridImage, isExpired && styles.expiredImage]} />
         {isExpired && (
           <View style={styles.expiredBadge}>
             <Text style={styles.expiredText}>{t('profile.expired')}</Text>

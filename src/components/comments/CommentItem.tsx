@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Comment } from '../../types';
 import { useCommentStore } from '../../store/commentStore';
 import { useAuthStore } from '../../store/authStore';
 import { Ionicons } from '@expo/vector-icons';
+import { Heart } from 'lucide-react-native';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useTranslation } from '../../i18n';
+import { colors } from '../../constants/colors';
 
 interface CommentItemProps {
   comment: Comment;
@@ -18,11 +20,70 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   comment, 
   postId, 
   onPress
-}) => {  const { deleteComment } = useCommentStore();
+}) => {  const { deleteComment, likeComment, unlikeComment, comments } = useCommentStore();
   const { user } = useAuthStore();
   const { t, language } = useTranslation();
   
-  const isOwner = comment.user?.id === user?.id;
+  // Get the latest comment data from store
+  const latestComment = comments[postId]?.find(c => c.id === comment.id) || comment;
+  
+  const [isLiked, setIsLiked] = useState<boolean>(latestComment.isLiked || false);
+  const [likesCount, setLikesCount] = useState<number>(latestComment.likeCount || 0);
+  // Sync state when comment props change
+  useEffect(() => {
+    console.log('CommentItem debug - comment data:', {
+      commentId: latestComment.id,
+      isLiked: latestComment.isLiked,
+      likeCount: latestComment.likeCount,
+      text: latestComment.text,
+      userId: latestComment.user?.id,
+      storeComments: comments[postId]?.length || 0
+    });
+    setIsLiked(latestComment.isLiked || false);
+    setLikesCount(latestComment.likeCount || 0);
+  }, [latestComment.isLiked, latestComment.likeCount, latestComment, comments, postId]);
+  
+  const isOwner = comment.user?.id === user?.id;  const handleLikeToggle = async () => {
+    if (!user) return;
+    
+    console.log('CommentItem like toggle - before:', {
+      commentId: comment.id,
+      currentIsLiked: isLiked,
+      currentLikesCount: likesCount,
+      commentLikeCount: comment.likeCount,
+      commentIsLiked: comment.isLiked
+    });
+    
+    try {
+      // Update UI immediately for better UX
+      const newLikedState = !isLiked;
+      const newLikesCount = newLikedState ? likesCount + 1 : Math.max(0, likesCount - 1);
+      
+      setIsLiked(newLikedState);
+      setLikesCount(newLikesCount);
+      
+      console.log('CommentItem like toggle - calling API:', {
+        action: isLiked ? 'unlike' : 'like',
+        commentId: comment.id,
+        postId: postId
+      });
+      
+      let result;
+      if (isLiked) {
+        result = await unlikeComment(comment.id, postId);
+      } else {
+        result = await likeComment(comment.id, postId);
+      }
+      
+      console.log('CommentItem like toggle - API result:', result);
+    } catch (error) {
+      // Revert state if error occurs
+      console.error('CommentItem like toggle - error:', error);
+      setIsLiked(latestComment.isLiked || false);
+      setLikesCount(latestComment.likeCount || 0);
+    }
+  };
+
   const handleDelete = () => {
     Alert.alert(
       t('posts.deleteComment'),
@@ -42,7 +103,9 @@ export const CommentItem: React.FC<CommentItemProps> = ({
         }
       ]
     );
-  };  const formatTime = (dateString: string) => {
+  };
+
+  const formatTime = (dateString: string) => {
     try {
       return formatDistanceToNow(new Date(dateString), { 
         addSuffix: true,
@@ -82,6 +145,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
             </TouchableOpacity>
           )}
         </View>
+
         {comment.text && comment.text.trim() && (
           <Text style={styles.commentText}>
             {comment.text}
@@ -94,7 +158,22 @@ export const CommentItem: React.FC<CommentItemProps> = ({
             style={styles.commentImage}
             resizeMode="cover"
           />
-        )}
+        )}        {/* Comment Actions */}
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity 
+            style={styles.likeButton} 
+            onPress={handleLikeToggle}
+          >
+            <Heart 
+              size={16} 
+              color={isLiked ? colors.secondary : colors.textLight} 
+              fill={isLiked ? colors.secondary : 'transparent'} 
+            />
+            <Text style={[styles.likeCount, isLiked && styles.likedText]}>
+              {likesCount}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -152,12 +231,36 @@ const styles = StyleSheet.create({
     color: '#333',
     lineHeight: 20,
     marginBottom: 8,
-  },
-  commentImage: {
+  },  commentImage: {
     width: '100%',
     height: 150,
     borderRadius: 8,
     marginBottom: 8,
     backgroundColor: '#f0f0f0',
-  }
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  likeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+  },
+  likeCount: {
+    fontSize: 12,
+    color: colors.textLight,
+    fontWeight: '500',
+  },
+  likedText: {
+    color: colors.secondary,
+  },
 });

@@ -23,12 +23,13 @@ const mapBackendCommentToAppComment = (backendComment: any): Comment => {
     },
     text: backendComment.text || '',
     image: backendComment.image,
+    likeCount: backendComment.likeCount || 0,
+    isLiked: backendComment.isLiked || false,
     createdAt: backendComment.createdAt
   };
 };
 
-class CommentService {
-  // Create comment
+class CommentService {  // Create comment
   async createComment(commentData: CreateCommentData): Promise<{ success: boolean; data?: Comment; error?: string }> {
     try {
       const response = await api.comments.createComment(
@@ -81,6 +82,70 @@ class CommentService {
     } catch (error) {
       console.error('Comment service - Delete comment error:', error);
       return { success: false, error: 'Failed to delete comment' };
+    }
+  }
+
+  // Like comment
+  async likeComment(commentId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const response = await api.posts.likeComment(commentId);
+
+      if (response.error) {
+        return { success: false, error: response.error };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Comment service - Like comment error:', error);
+      return { success: false, error: 'Failed to like comment' };
+    }
+  }
+
+  // Unlike comment
+  async unlikeComment(commentId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const response = await api.posts.unlikeComment(commentId);
+
+      if (response.error) {
+        return { success: false, error: response.error };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Comment service - Unlike comment error:', error);
+      return { success: false, error: 'Failed to unlike comment' };
+    }
+  }
+
+  // Check if user liked comment
+  async checkUserLikedComment(commentId: string): Promise<{ success: boolean; liked?: boolean; error?: string }> {
+    try {
+      const response = await api.posts.checkUserLikedComment(commentId);
+
+      if (response.error) {
+        return { success: false, error: response.error };
+      }
+
+      return { success: true, liked: response.data?.liked || false };
+    } catch (error) {
+      console.error('Comment service - Check like status error:', error);
+      return { success: false, error: 'Failed to check like status' };
+    }
+  }
+
+  // Get comment likes
+  async getCommentLikes(commentId: string, page: number = 1, limit: number = 20): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const response = await api.posts.getCommentLikes(commentId, page, limit);
+
+      if (response.error) {
+        return { success: false, error: response.error };
+      }
+
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('Comment service - Get comment likes error:', error);
+      return { success: false, error: 'Failed to get comment likes' };
     }
   }
 }

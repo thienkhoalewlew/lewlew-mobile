@@ -37,15 +37,12 @@ export const isPostWithinNotificationRadius = (
   if (!userLocation) {
     return false; // If no user location, don't show find location button
   }
-
   const distance = calculateDistance(
     userLocation.latitude,
     userLocation.longitude,
     postLocation.latitude,
     postLocation.longitude
   );
-
-  console.log(`Distance check: ${distance.toFixed(2)}km <= ${notificationRadius}km = ${distance <= notificationRadius}`);
   
   return distance <= notificationRadius;
 };

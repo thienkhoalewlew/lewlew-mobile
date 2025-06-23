@@ -32,10 +32,11 @@ export const usePostStore = create<PostState>()(
             const newPost: Post = {
               id: result.data.id,
               userId: result.data.userId,
-              imageUrl: result.data.imageUrl,
+              image: result.data.image,
               caption: result.data.caption,
               location: result.data.location,
-              likes: result.data.likes || [],
+              likeCount: result.data.likeCount || 0,
+              isLiked: false, // New posts are not liked by default
               comments: result.data.comments || [],
               createdAt: result.data.createdAt,
             };
@@ -68,8 +69,8 @@ export const usePostStore = create<PostState>()(
         // Cập nhật UI ngay lập tức
         set(state => ({
           posts: state.posts.map(post => 
-            post.id === postId && !post.likes.includes(userId)
-              ? { ...post, likes: [...post.likes, userId] }
+            post.id === postId && !post.isLiked
+              ? { ...post, isLiked: true, likeCount: post.likeCount + 1 }
               : post
           )
         }));
@@ -82,7 +83,7 @@ export const usePostStore = create<PostState>()(
             set(state => ({
               posts: state.posts.map(post => 
                 post.id === postId
-                  ? { ...post, likes: post.likes.filter(id => id !== userId) }
+                  ? { ...post, isLiked: false, likeCount: Math.max(0, post.likeCount - 1) }
                   : post
               )
             }));
@@ -93,7 +94,7 @@ export const usePostStore = create<PostState>()(
           set(state => ({
             posts: state.posts.map(post => 
               post.id === postId
-                ? { ...post, likes: post.likes.filter(id => id !== userId) }
+                ? { ...post, isLiked: false, likeCount: Math.max(0, post.likeCount - 1) }
                 : post
             )
           }));
@@ -105,8 +106,8 @@ export const usePostStore = create<PostState>()(
         // Cập nhật UI ngay lập tức
         set(state => ({
           posts: state.posts.map(post => 
-            post.id === postId
-              ? { ...post, likes: post.likes.filter(id => id !== userId) }
+            post.id === postId && post.isLiked
+              ? { ...post, isLiked: false, likeCount: Math.max(0, post.likeCount - 1) }
               : post
           )
         }));
@@ -118,8 +119,8 @@ export const usePostStore = create<PostState>()(
             // Revert nếu API call thất bại
             set(state => ({
               posts: state.posts.map(post => 
-                post.id === postId && !post.likes.includes(userId)
-                  ? { ...post, likes: [...post.likes, userId] }
+                post.id === postId
+                  ? { ...post, isLiked: true, likeCount: post.likeCount + 1 }
                   : post
               )
             }));
@@ -129,8 +130,8 @@ export const usePostStore = create<PostState>()(
           // Revert nếu có lỗi
           set(state => ({
             posts: state.posts.map(post => 
-              post.id === postId && !post.likes.includes(userId)
-                ? { ...post, likes: [...post.likes, userId] }
+              post.id === postId
+                ? { ...post, isLiked: true, likeCount: post.likeCount + 1 }
                 : post
             )
           }));

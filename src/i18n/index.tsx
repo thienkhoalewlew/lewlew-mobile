@@ -16,7 +16,7 @@ export const translations = {
 export const LanguageContext = createContext<{
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }>({
   language: 'en',
   setLanguage: () => {},
@@ -73,11 +73,19 @@ export const LanguageProvider = ({ children }: LanguageProviderProps) => {
       console.error('Failed to save language:', error);
     }
   };
-  
-  // Translation function
-  const t = (key: string): string => {
+    // Translation function with parameter support
+    const t = (key: string, params?: Record<string, string | number>): string => {
     const currentTranslations = translations[language];
-    return getNestedTranslation(currentTranslations, key);
+    let translatedText = getNestedTranslation(currentTranslations, key);
+    
+    // Replace parameters if provided
+    if (params) {
+      Object.keys(params).forEach(param => {
+        translatedText = translatedText.replace(new RegExp(`{{${param}}}`, 'g'), String(params[param]));
+      });
+    }
+    
+    return translatedText;
   };
   
   return (

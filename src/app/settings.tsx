@@ -192,13 +192,12 @@ export default function SettingsScreen() {
     setSelectedLanguage(lang);
     setShowLanguagePicker(false);
   };
-  const settingsOptions: SettingsSection[] = [
-    {
+  const settingsOptions: SettingsSection[] = [    {
       title: t('profile.profile'),
       items: [
         {
           icon: User,
-          label: t('profile.editProfile'),
+          label: t('profile.editFullname'),
           onPress: () => router.push('/settings/fullname'),
         },
         {

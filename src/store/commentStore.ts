@@ -102,5 +102,81 @@ export const useCommentStore = create<CommentState>((set, get) => ({
 
   // Clear error
   clearError: () => set({ error: null }),
+
+  // Like comment
+  likeComment: async (commentId: string, postId: string) => {
+    try {
+      const result = await commentService.likeComment(commentId);
+      
+      if (result.success) {
+        const { comments } = get();
+        const postComments = comments[postId] || [];
+        
+        // Update comment like status and count
+        const updatedComments = postComments.map(comment => 
+          comment.id === commentId 
+            ? { 
+                ...comment, 
+                isLiked: true, 
+                likeCount: (comment.likeCount || 0) + 1 
+              }
+            : comment
+        );
+        
+        set({
+          comments: {
+            ...comments,
+            [postId]: updatedComments
+          }
+        });
+        
+        return true;
+      } else {
+        set({ error: result.error || 'Failed to like comment' });
+        return false;
+      }
+    } catch (error) {
+      set({ error: 'An unexpected error occurred' });
+      return false;
+    }
+  },
+
+  // Unlike comment
+  unlikeComment: async (commentId: string, postId: string) => {
+    try {
+      const result = await commentService.unlikeComment(commentId);
+      
+      if (result.success) {
+        const { comments } = get();
+        const postComments = comments[postId] || [];
+        
+        // Update comment like status and count
+        const updatedComments = postComments.map(comment => 
+          comment.id === commentId 
+            ? { 
+                ...comment, 
+                isLiked: false, 
+                likeCount: Math.max((comment.likeCount || 0) - 1, 0) 
+              }
+            : comment
+        );
+        
+        set({
+          comments: {
+            ...comments,
+            [postId]: updatedComments
+          }
+        });
+        
+        return true;
+      } else {
+        set({ error: result.error || 'Failed to unlike comment' });
+        return false;
+      }
+    } catch (error) {
+      set({ error: 'An unexpected error occurred' });
+      return false;
+    }
+  },
 }));
 

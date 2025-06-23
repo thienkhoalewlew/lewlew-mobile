@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ca } from 'date-fns/locale';
 
-export const API_URL = 'https://lewlew.io.vn/api';
+export const API_URL = 'http://192.168.1.8:3000/api';
 
 // Headers mặc định cho các request
 const defaultHeaders = {
@@ -114,21 +113,80 @@ export const api = {
       }
     },
 
+    /**
+     * Cập nhật profile người dùng (mới) - sử dụng 1 endpoint cho tất cả các loại cập nhật
+     * 
+     * Endpoint này thay thế tất cả các endpoint update riêng lẻ:
+     * - update_avatar -> updateType: 'avatar'
+     * - update_password -> updateType: 'password' 
+     * - update_fullname -> updateType: 'fullname'
+     * - update_username -> updateType: 'username'
+     * - update_bio -> updateType: 'bio'
+     * - update_settings -> updateType: 'settings'
+     * 
+     * @param data Object chứa updateType và các field tương ứng
+     * @returns Promise<ApiResponse<any>> Kết quả cập nhật
+     */
+    updateProfile: async (data: {
+      updateType: 'avatar' | 'password' | 'fullname' | 'username' | 'bio' | 'settings';
+      avatar?: string;
+      currentPassword?: string;
+      newPassword?: string;
+      fullname?: string;
+      username?: string;
+      bio?: string;
+      notificationRadius?: number;
+      language?: 'en' | 'vi';
+    }): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/users/update_profile`, {
+          method: 'PATCH',
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data),
+        });        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Update profile error:', error);
+        if (error instanceof Error) {
+          return { error: error.message };
+        }
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // ===================================================================
+    // CÁC ENDPOINT CŨ (DEPRECATED) - Nên sử dụng updateProfile thay thế
+    // ===================================================================
+
+    /**
+     * @deprecated Sử dụng updateProfile({ updateType: 'avatar', avatar: avatarUrl }) thay thế
+     */
     // Cập nhật avatar người dùng hiện tại
     updateAvatar: async (avatarUrl: string): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/users/update_avatar`, {
+        const response = await fetch(`${API_URL}/users/update_profile`, {
           method: 'PATCH',
           headers,
-          body: JSON.stringify({ avatar: avatarUrl }),
+          body: JSON.stringify({ 
+            updateType: 'avatar',
+            avatar: avatarUrl 
+          }),
         });
         return handleResponse<any>(response);
       } catch (error) {
         console.error('Update avatar error:', error);
         return { error: 'Network error. Please check your connection.' };
       }
-    },    // Cập nhật settings người dùng
+    },
+
+    /**
+     * @deprecated Sử dụng updateProfile({ updateType: 'settings', notificationRadius, language }) thay thế
+     */
+    // Cập nhật settings người dùng
     updateSettings: async (settings: {
       notificationRadius: number;
       pushNotifications: boolean;
@@ -137,10 +195,14 @@ export const api = {
     }): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/users/update_settings`, {
+        const response = await fetch(`${API_URL}/users/update_profile`, {
           method: 'PATCH',
           headers,
-          body: JSON.stringify(settings),
+          body: JSON.stringify({
+            updateType: 'settings',
+            notificationRadius: settings.notificationRadius,
+            language: settings.language
+          }),
         });
         
         // Log response for debugging
@@ -155,6 +217,9 @@ export const api = {
       }
     },
 
+    /**
+     * @deprecated Endpoint này chưa được cập nhật để sử dụng updateProfile
+     */
     // Cập nhật email
     updateEmail: async (data: { email: string }): Promise<ApiResponse<any>> => {
       try {
@@ -171,14 +236,21 @@ export const api = {
       }
     },
 
+    /**
+     * @deprecated Sử dụng updateProfile({ updateType: 'password', currentPassword, newPassword }) thay thế
+     */
     // Cập nhật mật khẩu
     updatePassword: async (data: { currentPassword: string; newPassword: string }): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/users/password`, {
+        const response = await fetch(`${API_URL}/users/update_profile`, {
           method: 'PATCH',
           headers,
-          body: JSON.stringify(data),
+          body: JSON.stringify({
+            updateType: 'password',
+            currentPassword: data.currentPassword,
+            newPassword: data.newPassword
+          }),
         });
         return handleResponse<any>(response);
       } catch (error) {
@@ -187,14 +259,20 @@ export const api = {
       }
     },
 
+    /**
+     * @deprecated Sử dụng updateProfile({ updateType: 'username', username }) thay thế
+     */
     // Cập nhật username
     updateUsername: async (data: { username: string }): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/users/update_username`, {
+        const response = await fetch(`${API_URL}/users/update_profile`, {
           method: 'PATCH',
           headers,
-          body: JSON.stringify(data),
+          body: JSON.stringify({
+            updateType: 'username',
+            username: data.username
+          }),
         });
         return handleResponse<any>(response);
       } catch (error) {
@@ -203,14 +281,20 @@ export const api = {
       }
     },
 
+    /**
+     * @deprecated Sử dụng updateProfile({ updateType: 'fullname', fullname }) thay thế
+     */
     // Cập nhật fullname
     updateFullname: async (data: { fullname: string }): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/users/update_fullname`, {
+        const response = await fetch(`${API_URL}/users/update_profile`, {
           method: 'PATCH',
           headers,
-          body: JSON.stringify(data),
+          body: JSON.stringify({
+            updateType: 'fullname',
+            fullname: data.fullname
+          }),
         });
         return handleResponse<any>(response);
       } catch (error) {
@@ -244,26 +328,26 @@ export const api = {
       }
     },
 
+    /**
+     * @deprecated Sử dụng updateProfile({ updateType: 'bio', bio }) thay thế
+     */
     // Cập nhật bio
     updateBio: async (data: { bio: string }): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/users/update_bio`, {
+        const response = await fetch(`${API_URL}/users/update_profile`, {
           method: 'PATCH',
           headers: {
             ...headers,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(data),
+          body: JSON.stringify({
+            updateType: 'bio',
+            bio: data.bio
+          }),
         });
 
-        const responseData = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(responseData.message || 'Failed to update bio');
-        }
-        
-        return { data: responseData };
+        return handleResponse<any>(response);
       } catch (error) {
         console.error('Update bio error:', error);
         if (error instanceof Error) {
@@ -581,6 +665,21 @@ export const api = {
       }
     },
     
+    // Lấy danh sách bài viết của một người dùng cụ thể theo user ID
+    getUserPostsById: async (userId: string, includeExpired: boolean = false): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/posts/user/${userId}?includeExpired=${includeExpired}`, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Get user posts by ID error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
     // Lấy danh sách bài viết từ bạn bè của người dùng hiện tại
     getFriendsPosts: async (): Promise<ApiResponse<any>> => {
       try {
@@ -591,18 +690,19 @@ export const api = {
         });
         return handleResponse<any>(response);
       } catch (error) {
-        console.error('Get friends posts error:', error);
-        return { error: 'Network error. Please check your connection.' };
+        console.error('Get friends posts error:', error);        return { error: 'Network error. Please check your connection.' };
       }
     },
     
     // Like một bài viết
+
     likePost: async (postId: string): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/posts/${postId}/like`, {
+        const response = await fetch(`${API_URL}/likes`, {
           method: 'POST',
           headers,
+          body: JSON.stringify({ postId }),
         });
         return handleResponse<any>(response);
       } catch (error) {
@@ -615,7 +715,7 @@ export const api = {
     unlikePost: async (postId: string): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/posts/${postId}/like`, {
+        const response = await fetch(`${API_URL}/likes/${postId}`, {
           method: 'DELETE',
           headers,
         });
@@ -625,7 +725,36 @@ export const api = {
         return { error: 'Network error. Please check your connection.' };
       }
     },
-    
+
+    // Kiểm tra user đã like post chưa
+    checkUserLikedPost: async (postId: string): Promise<ApiResponse<{ liked: boolean }>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/likes/check/${postId}`, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<{ liked: boolean }>(response);
+      } catch (error) {
+        console.error('Check like status error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Lấy danh sách users đã like post
+    getPostLikes: async (postId: string, page: number = 1, limit: number = 20): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/likes/post/${postId}?page=${page}&limit=${limit}`, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Get post likes error:', error);
+        return { error: 'Network error. Please check your connection.' };      }
+    },
+
     // Xóa một bài viết
     deletePost: async (postId: string): Promise<ApiResponse<any>> => {
       try {
@@ -640,176 +769,67 @@ export const api = {
         return { error: 'Network error. Please check your connection.' };
       }
     },
-  },
-  
-  //Nofitication
-  notifications:{
-    //get all notifications
-    getNotifications: async (): Promise<ApiResponse<any>> => {
-      try {
-        const headers = await getAuthHeaders();
-        console.log('Getting notifications with headers:', headers);
-        const response = await fetch(`${API_URL}/notifications`, {
-          method: 'GET',
-          headers,
-        });
-        console.log('Notifications API response status:', response.status);
-        const result = await handleResponse<any>(response);
-        console.log('Notifications API parsed result:', result.error || 'Success');
-        return result;
-      } catch (error) {
-        console.error('Get notifications error:', error);
-        return { error: 'Network error. Please check your connection.' };
-      }
-    },    //Mark notification as read
-    markAsRead: async (notificationId: string): Promise<ApiResponse<any>> => {
-      try  {
-        const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/notifications/${notificationId}`, {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify({ read: true }),
-        });
-        return handleResponse<any>(response);
-      } catch (error) {
-        console.error('Mark notification as read error:', error);
-        return { error: 'Network error. Please check your connection.' };
-      }
-    },    // Mark all notifications as read
-    markAllAsRead: async (): Promise<ApiResponse<any>> => {
-      try {
-        console.log('API: Starting markAllAsRead request...');
-        const headers = await getAuthHeaders();
-        console.log('API: Got auth headers:', headers);
-        
-        const response = await fetch(`${API_URL}/notifications/mark-all-read`, {
-          method: 'PATCH',
-          headers,
-        });
-        
-        console.log('API: Mark all as read response status:', response.status);
-        console.log('API: Mark all as read response ok:', response.ok);
-        
-        const result = await handleResponse<any>(response);
-        console.log('API: Mark all as read result:', result);
-        
-        return result;
-      } catch (error) {
-        console.error('Mark all notifications as read error:', error);
-        return { error: 'Network error. Please check your connection.' };
-      }
-    }
-  },
 
-  // Upload APIs
-  uploads: {
-    // Lưu thông tin ảnh đã upload lên Cloudinary
-    saveImageInfo: async (imageData: {
-      url: string;
-      filename: string;
-      originalname: string;
-      mimetype: string;
-      size: number;
-      metadata?: any;
-    }): Promise<ApiResponse<any>> => {
+    // Like một comment
+    likeComment: async (commentId: string): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/uploads`, {
+        const response = await fetch(`${API_URL}/likes/comment/${commentId}`, {
           method: 'POST',
           headers,
-          body: JSON.stringify(imageData),
         });
         return handleResponse<any>(response);
       } catch (error) {
-        console.error('Save image info error:', error);
+        console.error('Like comment error:', error);
         return { error: 'Network error. Please check your connection.' };
       }
     },
 
-    // Lấy danh sách ảnh đã upload của user hiện tại
-    getUploadedImages: async (): Promise<ApiResponse<any>> => {
+    // Unlike một comment
+    unlikeComment: async (commentId: string): Promise<ApiResponse<any>> => {
       try {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/uploads`, {
-          method: 'GET',
-          headers,
-        });
-        return handleResponse<any>(response);
-      } catch (error) {
-        console.error('Get uploaded images error:', error);
-        return { error: 'Network error. Please check your connection.' };
-      }
-    },
-
-    // Xóa ảnh đã upload
-    deleteImage: async (imageId: string): Promise<ApiResponse<any>> => {
-      try {
-        const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/uploads/${imageId}`, {
+        const response = await fetch(`${API_URL}/likes/comment/${commentId}`, {
           method: 'DELETE',
           headers,
         });
         return handleResponse<any>(response);
       } catch (error) {
-        console.error('Delete image error:', error);
-        return { error: 'Network error. Please check your connection.' };
-      }
-    }
-  },
-
-  // Comment APIs
-  comments: {
-    //Create a new comment on a post
-    createComment: async (postId: string, text: string, image?: string): Promise<ApiResponse<any>> => {
-      try{
-        const headers = await getAuthHeaders();
-        const commentData: any = { postId };
-
-        if(text) commentData.text = text;
-        if(image) commentData.image = image;
-
-        const response = await fetch(`${API_URL}/comments`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(commentData),
-        });
-        return handleResponse<any>(response);
-      } catch (error) {
-        console.error('Create comment error:', error);
+        console.error('Unlike comment error:', error);
         return { error: 'Network error. Please check your connection.' };
       }
     },
 
-    // Get comments for a post
-    getComments: async (postId: string): Promise<ApiResponse<any>> => {
-      try{
+    // Kiểm tra user đã like comment chưa
+    checkUserLikedComment: async (commentId: string): Promise<ApiResponse<{ liked: boolean }>> => {
+      try {
         const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/comments?postId=${postId}`, {
+        const response = await fetch(`${API_URL}/likes/check/comment/${commentId}`, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<{ liked: boolean }>(response);
+      } catch (error) {
+        console.error('Check comment like status error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Lấy danh sách users đã like comment
+    getCommentLikes: async (commentId: string, page: number = 1, limit: number = 20): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/likes/comment/${commentId}?page=${page}&limit=${limit}`, {
           method: 'GET',
           headers,
         });
         return handleResponse<any>(response);
-      }
-      catch (error) {
-        console.error('Get comments error:', error);
+      } catch (error) {
+        console.error('Get comment likes error:', error);
         return { error: 'Network error. Please check your connection.' };
       }
     },
 
-    // Delete a comment
-    deleteComment: async (commentId: string): Promise<ApiResponse<any>> => {
-      try {
-        const headers = await getAuthHeaders();
-        const response = await fetch(`${API_URL}/comments/${commentId}`, {
-          method: 'DELETE',
-          headers,
-        });
-        return handleResponse<any>(response);
-      } catch (error) {
-        console.error('Delete comment error:', error);
-        return { error: 'Network error. Please check your connection.' };
-      }
-    },
   },
 
   // Report APIs
@@ -905,6 +925,179 @@ export const api = {
         return handleResponse<any>(response);
       } catch (error) {
         console.error('Get report by ID error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+    /**
+     * Cập nhật profile người dùng (mới) - sử dụng 1 endpoint cho tất cả các loại cập nhật
+     * 
+     * Endpoint này thay thế tất cả các endpoint update riêng lẻ:
+     * - update_avatar -> updateType: 'avatar'
+     * - update_password -> updateType: 'password' 
+     * - update_fullname -> updateType: 'fullname'
+     * - update_username -> updateType: 'username'
+     * - update_bio -> updateType: 'bio'
+     * - update_settings -> updateType: 'settings'
+     * 
+     * @param data Object chứa updateType và các field tương ứng
+     * @returns Promise<ApiResponse<any>> Kết quả cập nhật
+     */
+    updateProfile: async (data: {
+      updateType: 'avatar' | 'password' | 'fullname' | 'username' | 'bio' | 'settings';
+      avatar?: string;
+      currentPassword?: string;
+      newPassword?: string;
+      fullname?: string;
+      username?: string;
+      bio?: string;
+      notificationRadius?: number;
+      language?: 'en' | 'vi';
+    }): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/users/update_profile`, {
+          method: 'PATCH',
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data),
+        });
+
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Update profile error:', error);
+        if (error instanceof Error) {
+          return { error: error.message };
+        }
+        return { error: 'Network error. Please check your connection.' };
+      }    },
+  },
+
+  // Comments APIs
+  comments: {
+    // Create comment
+    createComment: async (postId: string, text: string, image?: string): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/comments`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ postId, text, image }),
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Create comment error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Get comments for a post
+    getComments: async (postId: string): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/comments?postId=${postId}`, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Get comments error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Delete comment
+    deleteComment: async (commentId: string): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/comments/${commentId}`, {
+          method: 'DELETE',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Delete comment error:', error);        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+  },
+
+  // Notifications APIs
+  notifications: {
+    // Get notifications
+    getNotifications: async (): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/notifications`, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Get notifications error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }    },
+
+    // Mark notification as read
+    markAsRead: async (notificationId: string): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/notifications/${notificationId}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ read: true }),
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Mark notification as read error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Mark all notifications as read
+    markAllAsRead: async (): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/notifications/mark-all-read`, {
+          method: 'PATCH',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Mark all notifications as read error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+  },
+
+  // Uploads APIs
+  uploads: {
+    // Get uploaded images
+    getUploadedImages: async (): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/uploads/images`, {
+          method: 'GET',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Get uploaded images error:', error);
+        return { error: 'Network error. Please check your connection.' };
+      }
+    },
+
+    // Delete image
+    deleteImage: async (imageId: string): Promise<ApiResponse<any>> => {
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_URL}/uploads/images/${imageId}`, {
+          method: 'DELETE',
+          headers,
+        });
+        return handleResponse<any>(response);
+      } catch (error) {
+        console.error('Delete image error:', error);
         return { error: 'Network error. Please check your connection.' };
       }
     },

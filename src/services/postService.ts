@@ -96,10 +96,12 @@ export const createPost = async (postData: any) => {
         data: {
           id: postId,
           userId: postData.userId,
-          imageUrl: imageUrl,
+          image: imageUrl,
           caption: postData.caption,
           location: postData.location,
-          likes: response.data.likes || [],
+          likeCount: response.data.likeCount || 0,
+          isLiked: false, // Assume new post is not liked by default
+          commentCount: response.data.commentCount || 0,
           comments: response.data.comments || [],
           createdAt: new Date(response.data.createdAt),
         },
@@ -137,21 +139,24 @@ export const mapBackendPostToAppPost = (backendPost: any): Post => {
   
   console.log('Mapping post:', backendPost._id, 'userId:', userId);
   console.log('Backend user:', backendPost.user); // Add debug log for backend data
+  console.log('Backend commentCount:', backendPost.commentCount); // Add debug log for commentCount
   console.log('Mapped user:', user); // Add debug log for mapped data
   
   return {
     id: backendPost._id || backendPost.id,
     userId: userId,
     user: user,
-    imageUrl: backendPost.imageUrl || backendPost.image,
+    image: backendPost.imageUrl || backendPost.image,
     caption: backendPost.caption || '',
     location: {
       latitude: backendPost.location?.coordinates ? backendPost.location.coordinates[1] : 0,
       longitude: backendPost.location?.coordinates ? backendPost.location.coordinates[0] : 0,
       name: backendPost.location?.placeName || '',
     },
-    likes: backendPost.likes || [],
+    likeCount: backendPost.likeCount || 0,
+    isLiked: backendPost.isLiked || false, // Get from backend if available
     comments: backendPost.comments || [],
+    commentCount: backendPost.commentCount || 0, // Add commentCount from backend
     createdAt: new Date(backendPost.createdAt),
   };
 };
@@ -188,7 +193,7 @@ export const getUserPosts = async (includeExpired: boolean = true): Promise<Post
 /**
  * Like một bài viết
  * @param postId ID của bài viết cần like
- * @returns Promise với thông tin bài viết đã được like
+ * @returns Promise với thông tin like đã tạo
  */
 export const likePost = async (postId: string): Promise<{ success: boolean; error?: string; data?: any }> => {
   try {
@@ -217,7 +222,7 @@ export const likePost = async (postId: string): Promise<{ success: boolean; erro
 /**
  * Unlike một bài viết
  * @param postId ID của bài viết cần unlike
- * @returns Promise với thông tin bài viết đã được unlike
+ * @returns Promise với kết quả unlike
  */
 export const unlikePost = async (postId: string): Promise<{ success: boolean; error?: string; data?: any }> => {
   try {
@@ -239,6 +244,66 @@ export const unlikePost = async (postId: string): Promise<{ success: boolean; er
     return {
       success: false,
       error: 'Unable to unlike post. Please try again later.'
+    };
+  }
+};
+
+/**
+ * Kiểm tra user đã like post chưa
+ * @param postId ID của bài viết
+ * @returns Promise với trạng thái like
+ */
+export const checkUserLikedPost = async (postId: string): Promise<{ success: boolean; liked?: boolean; error?: string }> => {
+  try {
+    const response = await api.posts.checkUserLikedPost(postId);
+    
+    if (response.error) {
+      return {
+        success: false,
+        error: response.error
+      };
+    }
+    
+    return {
+      success: true,
+      liked: response.data?.liked || false
+    };
+  } catch (error) {
+    console.error('Error checking like status:', error);
+    return {
+      success: false,
+      error: 'Unable to check like status.'
+    };
+  }
+};
+
+/**
+ * Lấy danh sách users đã like post
+ * @param postId ID của bài viết
+ * @param page Trang (mặc định 1)
+ * @param limit Số lượng mỗi trang (mặc định 20)
+ * @returns Promise với danh sách likes
+ */
+export const getPostLikes = async (postId: string, page: number = 1, limit: number = 20): Promise<{ success: boolean; data?: any; error?: string }> => {
+  try {
+    const response = await api.posts.getPostLikes(postId, page, limit);
+    
+    if (response.error) {
+      return {
+        success: false,
+        error: response.error
+      };
+    }
+    
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error getting post likes:', error);
+    return {
+      success: false,
+      error: 'Unable to get post likes.'
     };
   }
 };
@@ -306,5 +371,30 @@ export const getPostById = async (postId: string): Promise<Post | null> => {
   } catch (error) {
     console.error('🔍 getPostById - Error fetching post by ID:', error);
     throw error; // Ném lỗi để xử lý ở lớp cao hơn
+  }
+};
+
+/**
+ * Lấy danh sách bài viết của một người dùng cụ thể theo user ID
+ * @param userId ID của người dùng
+ * @param includeExpired Có bao gồm bài viết hết hạn không
+ * @returns Promise<Post[]> Danh sách bài viết
+ */
+export const getUserPostsById = async (userId: string, includeExpired: boolean = false): Promise<Post[]> => {
+  try {
+    console.log('📝 getUserPostsById - Fetching posts for user:', userId, 'includeExpired:', includeExpired);
+    
+    const response = await api.posts.getUserPostsById(userId, includeExpired);
+    
+    if (response.data && Array.isArray(response.data)) {
+      console.log('📝 getUserPostsById - Found posts count:', response.data.length);
+      return response.data.map(mapBackendPostToAppPost);
+    }
+    
+    console.log('📝 getUserPostsById - No posts found or invalid response format');
+    return [];
+  } catch (error) {
+    console.error('📝 getUserPostsById - Error fetching user posts:', error);
+    return [];
   }
 };

@@ -36,6 +36,10 @@ export const PostCard: React.FC<PostCardProps> = ({
   onNavigateToPost,
   feedType = 'nearby'
 }) => {
+  // Add defensive check for post object
+  if (!post) {
+    return null;
+  }
   const router = useRouter();
   const { user } = useAuthStore();
   const { likePost, unlikePost, deletePost } = usePostStore();
@@ -47,16 +51,16 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [likesCount, setLikesCount] = useState<number>(0);
   const [showReportModal, setShowReportModal] = useState<boolean>(false);
   
-  // Get actual comment count from comment store
-  const actualCommentCount = comments[post.id]?.length || post.comments.length;
+  // Get actual comment count - prioritize backend commentCount, then local comments, finally fallback to post.comments.length
+  const actualCommentCount = post.commentCount ?? comments[post.id]?.length ?? post.comments?.length ?? 0;
 
   // Update like state and count when post or user changes
   useEffect(() => {
     if (user) {
-      setIsLiked(post.likes.includes(user.id));
+      setIsLiked(post.isLiked || false);
     }
-    setLikesCount(post.likes.length);
-  }, [post.likes, user]);
+    setLikesCount(post.likeCount || 0);
+  }, [post.isLiked, post.likeCount, user]);
   
   const handleLikeToggle = async () => {
     if (!user) return;
@@ -75,7 +79,7 @@ export const PostCard: React.FC<PostCardProps> = ({
     } catch (error) {
       // Revert state if error occurs
       setIsLiked(isLiked);
-      setLikesCount(post.likes.length);
+      setLikesCount(post.likeCount || 0);
       console.error('Error toggling like:', error);
     }
   };
@@ -223,7 +227,7 @@ export const PostCard: React.FC<PostCardProps> = ({
       
       <TouchableOpacity onPress={handleViewPost}>
         <Image 
-          source={{ uri: post.imageUrl }} 
+          source={{ uri: post.image }} 
           style={styles.image} 
           resizeMode="cover"
         />

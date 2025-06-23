@@ -23,14 +23,12 @@ import { getUserById } from '@/src/services/userService';
 import { useNotificationContext } from '../../providers/NotificationProvider';
 import { isPostExpired } from '../../utils/timeUtils';
 import { useTranslation } from '../../i18n';
-import { useNotificationMessageTranslation } from '../../utils/notificationUtils';
+import { parseNotificationMessage } from '../../utils/notificationParser';
 
 export default function NotificationsScreen() {
   const { showNotification } = useNotificationContext();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { t, language } = useTranslation();
-  const { translateMessage } = useNotificationMessageTranslation();
+  const insets = useSafeAreaInsets();  const { t, language } = useTranslation();
   const { 
     notifications, 
     isLoading, 
@@ -192,10 +190,25 @@ export default function NotificationsScreen() {
             Alert.alert(t('notifications.notification'), t('notifications.cannotOpenPost'));
           }
           break;
-        case NotificationType.POST_COMMENT:
+          case NotificationType.POST_COMMENT:
           if (validPostId) {
             console.log('Navigating to post with ID:', validPostId, 'and comment:', validCommentId);
             // Chuyển đến bài đăng và truyền commentId để có thể scroll đến comment đó
+            router.push({
+              pathname: '/post/[id]',
+              params: { 
+                id: validPostId,
+                highlightCommentId: validCommentId 
+              }
+            });
+          } else {
+            Alert.alert(t('notifications.notification'), t('notifications.cannotOpenPost'));
+          }
+          break;
+        case NotificationType.COMMENT_LIKE:
+          if (validPostId) {
+            console.log('Navigating to post with ID:', validPostId, 'for comment like');
+            // Mở bài viết khi ai đó like comment
             router.push({
               pathname: '/post/[id]',
               params: { 
@@ -297,7 +310,7 @@ export default function NotificationsScreen() {
                    t('notifications.someone'))
               }
             </Text>
-            <Text>{' '}{translateMessage(item.message)}</Text>
+            <Text>{' '}{parseNotificationMessage(item.message, t)}</Text>
           </Text>
           <Text style={styles.time}>{formatTime(new Date(item.createdAt))}</Text>
         </View>

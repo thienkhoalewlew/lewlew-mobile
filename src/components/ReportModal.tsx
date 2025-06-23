@@ -33,12 +33,16 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   
   const { reportPost, loading } = useReportStore();
   const { t } = useTranslation();
-
   const REPORT_REASONS = [
     { 
       key: ReportReason.INAPPROPRIATE_CONTENT, 
       label: t('posts.reportReasons.inappropriate_content'), 
       description: t('posts.reportReasons.inappropriate_contentDescription') 
+    },
+    { 
+      key: ReportReason.SPAM, 
+      label: t('posts.reportReasons.spam'), 
+      description: t('posts.reportReasons.spamDescription') 
     },
     { 
       key: ReportReason.VIOLENCE, 

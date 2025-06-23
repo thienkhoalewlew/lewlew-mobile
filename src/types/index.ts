@@ -22,18 +22,27 @@ export interface User {
   };
 }
 
+export interface Like {
+  id: string;
+  post: string;
+  user: User;
+  likedAt: Date;
+}
+
 export interface Post {
   id: string;
   userId: string;
-  imageUrl: string;
-  caption: string;
+  caption?: string;
+  image?: string;
   location: {
     latitude: number;
     longitude: number;
     name: string;
   };
-  likes: string[];
+  likeCount: number; // Changed from likes array to count
+  isLiked?: boolean; // Add field to track if current user liked
   comments: Comment[];
+  commentCount?: number; // Add commentCount from backend
   createdAt: Date;
   expiresAt?: Date;
   user?: {
@@ -51,6 +60,8 @@ export interface Comment {
   user: User;
   text: string;
   image?: string;
+  likeCount: number;
+  isLiked?: boolean;
   createdAt: string;
 }
 
@@ -67,6 +78,8 @@ export interface CommentState {
   createComment: (commentData: CreateCommentData) => Promise<boolean>;
   getComments: (postId: string) => Promise<void>;
   deleteComment: (commentId: string, postId: string) => Promise<boolean>;
+  likeComment: (commentId: string, postId: string) => Promise<boolean>;
+  unlikeComment: (commentId: string, postId: string) => Promise<boolean>;
   clearComments: (postId: string) => void;
   clearError: () => void;
 }
@@ -152,6 +165,7 @@ export enum NotificationType {
   FRIEND_ACCEPTED = 'FRIEND_ACCEPTED',
   POST_LIKE = 'POST_LIKE',
   POST_COMMENT = 'POST_COMMENT',
+  COMMENT_LIKE = 'COMMENT_LIKE',
   POST_VIRAL = 'POST_VIRAL',
   FRIEND_POST = 'FRIEND_POST',
   SYSTEM_NOTIFICATION = 'SYSTEM_NOTIFICATION',
@@ -198,6 +212,7 @@ export interface Report {
 
 export enum ReportReason {
   INAPPROPRIATE_CONTENT = 'inappropriate_content',
+  SPAM = 'spam',
   VIOLENCE = 'violence',
   GORE = 'gore',
   BLOOD = 'blood',

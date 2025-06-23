@@ -105,7 +105,10 @@ export default {
     resetCodeVerified: 'Đã xác minh mã thành công',
     backToLogin: 'Quay Lại Đăng Nhập',
     resendResetCode: 'Gửi Lại Mã Đặt Lại',
-  },  // Register
+    smssentForgotPassword: 'Mã đặt lại mật khẩu đã được gửi đến số điện thoại của bạn.\n\nVui lòng kiểm tra tin nhắn SMS.',
+
+  },
+  // Register
   register: {
     createAccount: 'Tạo tài khoản',
     signUpToGetStarted: 'Đăng ký để bắt đầu',
@@ -122,11 +125,13 @@ export default {
     signUp: 'Đăng ký',
     alreadyHaveAnAccount: 'Bạn đã có tài khoản?',
     signIn: 'Đăng nhập',
+    smsVerification: 'Mã xác thực đã được gửi đến số điện thoại của bạn.\n\nVui lòng kiểm tra tin nhắn SMS.',
   },
   // Profile
   profile: {
     profile: 'Hồ sơ',
     editProfile: 'Chỉnh sửa hồ sơ',
+    editFullname: 'Chỉnh sửa họ và tên',
     avatar: 'Ảnh đại diện',
     bio: 'Tiểu sử',
     location: 'Vị trí',
@@ -221,6 +226,7 @@ export default {
     takePhoto: 'Chụp ảnh',
     location: 'Vị trí',
     tagFriends: 'Gắn thẻ bạn bè',
+    
     // PostCard specific translations
     like: 'lượt thích',
     like_plural: 'lượt thích',
@@ -231,11 +237,13 @@ export default {
     unknownLocation: 'Vị trí không xác định',
     postOutOfRange: 'Bài viết quá xa',
     deletePostTitle: 'Xóa bài viết',
-    deletePostMessage: 'Bạn có chắc chắn muốn xóa bài viết này? Hành động này không thể hoàn tác.',    postOptionsTitle: 'Tùy chọn bài viết',
+    deletePostMessage: 'Bạn có chắc chắn muốn xóa bài viết này? Hành động này không thể hoàn tác.',
+    postOptionsTitle: 'Tùy chọn bài viết',
     postOptionsMessage: 'Chọn một hành động',
     reportPost: 'Báo cáo bài viết',
     reportTitle: 'Báo cáo bài viết',
-      // Report Modal translations
+    
+    // Report Modal translations
     reportModalTitle: 'Báo cáo bài viết',
     reportReason: 'Có vấn đề gì với bài viết này?',
     reportReasonHelper: 'Báo cáo của bạn sẽ được ẩn danh, trừ khi bạn báo cáo vi phạm bản quyền trí tuệ.',
@@ -248,6 +256,8 @@ export default {
     reportReasons: {
       inappropriate_content: 'Nội dung không phù hợp',
       inappropriate_contentDescription: 'Nội dung tình dục, khỏa thân hoặc tài liệu gây khó chịu nói chung',
+      spam: 'Spam',
+      spamDescription: 'Nội dung quảng cáo không mong muốn, khuyến mãi giả mạo hoặc bài viết lặp lại',
       violence: 'Bạo lực',
       violenceDescription: 'Nội dung khuyến khích hoặc mô tả bạo lực',
       gore: 'Nội dung máu me',
@@ -406,13 +416,27 @@ export default {
     errorOpeningNotification: 'Đã xảy ra lỗi khi mở thông báo',
     newPost: 'Bài viết mới',
     newNotification: 'Thông báo mới',
-    // Notification message translations (for backend messages)
+    friendDelete: 'đã xóa kết bạn với bạn',
+    // Notification message translations
     hasLikedYourPost: 'đã thích bài viết của bạn',
     hasCommentedOnYourPost: 'đã bình luận bài viết của bạn',
+    hasLikedYourComment: 'đã thích bình luận của bạn',
     hasSentYouAFriendRequest: 'đã gửi lời mời kết bạn cho bạn',
     hasAcceptedYourFriendRequest: 'đã chấp nhận lời mời kết bạn của bạn',
     hasPostedNearbyYou: 'đã đăng bài viết gần bạn',
     hasPostedANewPost: 'đã đăng bài viết mới',
+    friendRequest: 'đã gửi lời mời kết bạn cho bạn',
+    friendAccept: 'đã chấp nhận lời mời kết bạn của bạn', 
+    postLike: 'đã thích bài viết của bạn',
+    postComment: 'đã bình luận bài viết của bạn',
+    commentLike: 'đã thích bình luận của bạn',
+    nearbyPost: 'đã đăng bài gần bạn',
+    friendPost: 'đã đăng bài viết mới',
+    reportApproved: 'Báo cáo của bạn về "{{reportReason}}" đã được xem xét và nội dung đã bị xóa. Cảm ơn bạn đã giúp giữ cộng đồng an toàn.',
+    reportRejected: 'Báo cáo của bạn về "{{reportReason}}" đã được xem xét và được xác định không vi phạm quy tắc cộng đồng của chúng tôi.',
+    reportRejectedWithNotes: 'Báo cáo của bạn về "{{reportReason}}" đã được xem xét và được xác định không vi phạm quy tắc cộng đồng của chúng tôi. Ghi chú của quản trị viên: {{adminNotes}}',
+    reportUnderReview: 'Báo cáo của bạn về "{{reportReason}}" đang được nhóm kiểm duyệt xem xét. Chúng tôi sẽ thông báo khi có kết quả.',
+    
     // System notifications for post removal
     postRemovedForViolation: 'Bài viết của bạn đã bị xóa vì vi phạm nguyên tắc cộng đồng của chúng tôi',
     postRemovedForInappropriateContent: 'Bài viết của bạn đã bị xóa vì có nội dung không phù hợp',
@@ -421,10 +445,6 @@ export default {
     postRemovedForBlood: 'Bài viết của bạn đã bị xóa vì có nội dung máu me',
     postRemovedForGraphicViolence: 'Bài viết của bạn đã bị xóa vì có nội dung bạo lực kinh dị',
     postRemovedForAIDetection: 'Bài viết của bạn đã bị tự động xóa do hệ thống AI phát hiện vi phạm chính sách',
-    // Report status notifications
-    reportUnderReview: 'đang được đội ngũ kiểm duyệt xem xét. Chúng tôi sẽ thông báo cho bạn khi có kết quả.',
-    reportApproved: 'đã được xem xét và nội dung đã được gỡ bỏ. Cảm ơn bạn đã giúp giữ cộng đồng an toàn.',
-    reportRejected: 'đã được xem xét và được xác định không vi phạm nguyên tắc cộng đồng của chúng tôi.',
   },
   
   // Map

@@ -130,14 +130,12 @@ export default function ForgotPasswordScreen() {
         [{ text: t('common.ok') }]
       );
 
-      // Show development mode alert
-      if (__DEV__) {
-        Alert.alert(
-          'Development Mode', 
-          'SMS Service is in Development mode.\n\nFixed verification code: 123456\n\nCheck backend console for details.',
-          [{ text: 'OK' }]
-        );
-      }
+      // Hiển thị thông báo production mode
+      Alert.alert(
+        t('SMS Sent'), 
+        t('auth.smssentForgotPassword'),
+        [{ text: 'OK' }]
+      );
     } catch (err) {
       Alert.alert(t('common.error'), getErrorMessage(err));
     }

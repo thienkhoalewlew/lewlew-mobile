@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Notification } from '../types';
 import { colors } from '../constants/colors';
 import { useTranslation } from '../i18n';
-import { useNotificationMessageTranslation } from '../utils/notificationUtils';
+import { parseNotificationMessage } from '../utils/notificationParser';
 
 interface NotificationPopupProps {
   notification: Notification | null;
@@ -32,7 +32,6 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
   const translateY = useRef(new Animated.Value(-100)).current;
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { t } = useTranslation();
-  const { translateMessage } = useNotificationMessageTranslation();
 
   useEffect(() => {
     if (notification) {
@@ -116,7 +115,7 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
           </Text>
           <Text style={styles.message} numberOfLines={2}>
             <Text style={styles.senderName}>{senderName || t('notifications.someone')}</Text>
-            <Text>{' '}{translateMessage(notification.message)}</Text>
+            <Text>{' '}{parseNotificationMessage(notification.message, t)}</Text>
           </Text>
         </View>
       </TouchableOpacity>

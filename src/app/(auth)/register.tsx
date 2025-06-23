@@ -148,14 +148,12 @@ export default function RegisterScreen() {
         await sendVerificationCode(phoneNumber);
         setStep('verify');
         
-        // Hiển thị thông báo development mode
-        if (__DEV__) {
-          Alert.alert(
-            'Development Mode', 
-            'SMS Service đang ở chế độ Development.\n\nMã xác thực cố định: 123456\n\nKiểm tra console backend để xem chi tiết.',
-            [{ text: 'OK' }]
-          );
-        }
+        // Hiển thị thông báo production mode  
+        Alert.alert(
+          'SMS Verification', 
+          'Mã xác thực đã được gửi đến số điện thoại của bạn.\n\nVui lòng kiểm tra tin nhắn SMS.',
+          [{ text: 'OK' }]
+        );
       } catch (err) {
         Alert.alert(t('auth.registrationError'), getErrorMessage(err));
       }

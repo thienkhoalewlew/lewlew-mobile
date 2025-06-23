@@ -104,6 +104,7 @@ export default {
     resetCodeVerified: 'Reset code verified successfully',
     backToLogin: 'Back to Login',
     resendResetCode: 'Resend Reset Code',
+    smssentForgotPassword: 'The password reset code has been sent to your phone number.\n\nPlease check your SMS.',
   },
   // Register
   register: {
@@ -122,11 +123,13 @@ export default {
     signUp: 'Sign Up',
     alreadyHaveAnAccount: 'Already have an account?',
     signIn: 'Sign In',
+    smsVerification: 'SMS verification code has been sent to your phone number.\n\nPlease check your SMS.',
   },
   // Profile
   profile: {
     profile: 'Profile',
     editProfile: 'Edit Profile',
+    editFullname: 'Edit Fullname',
     avatar: 'Avatar',
     bio: 'Bio',
     location: 'Location',
@@ -246,6 +249,8 @@ export default {
     reportReasons: {
       inappropriate_content: 'Inappropriate Content',
       inappropriate_contentDescription: 'Sexual content, nudity, or generally offensive material',
+      spam: 'Spam',
+      spamDescription: 'Unwanted commercial content, fake promotions, or repetitive posts',
       violence: 'Violence',
       violenceDescription: 'Content that promotes or depicts violence',
       gore: 'Gore or Blood',
@@ -403,10 +408,26 @@ export default {
     newNotification: 'New Notification',
     hasLikedYourPost: 'has liked your post',
     hasCommentedOnYourPost: 'has commented on your post',
+    hasLikedYourComment: 'has liked your comment',
     hasSentYouAFriendRequest: 'has sent you a friend request',
     hasAcceptedYourFriendRequest: 'has accepted your friend request',
     hasPostedNearbyYou: 'has posted nearby you',
     hasPostedANewPost: 'has posted a new post',
+    friendDelete: 'has removed you as a friend',
+    
+    // Message keys for notifications (to be used with backend)
+    friendRequest: 'has sent you a friend request',
+    friendAccept: 'has accepted your friend request', 
+    postLike: 'has liked your post',
+    postComment: 'has commented on your post',
+    commentLike: 'has liked your comment',
+    nearbyPost: 'has posted nearby you',
+    friendPost: 'has posted a new post',
+    reportApproved: 'Your report about "{{reportReason}}" has been reviewed and the content has been removed. Thank you for helping keep our community safe.',
+    reportRejected: 'Your report about "{{reportReason}}" has been reviewed and determined not to violate our community guidelines.',
+    reportRejectedWithNotes: 'Your report about "{{reportReason}}" has been reviewed and determined not to violate our community guidelines. Admin notes: {{adminNotes}}',
+    reportUnderReview: 'Your report about "{{reportReason}}" is being reviewed by our moderation team. We\'ll notify you once it\'s resolved.',
+    
     // System notifications for post removal
     postRemovedForViolation: 'Your post has been removed for violating our community guidelines',
     postRemovedForInappropriateContent: 'Your post has been removed for inappropriate content',
@@ -415,10 +436,6 @@ export default {
     postRemovedForBlood: 'Your post has been removed for bloody content',
     postRemovedForGraphicViolence: 'Your post has been removed for graphic violence',
     postRemovedForAIDetection: 'Your post has been automatically removed due to policy violations detected by our AI system',
-    // Report status notifications
-    reportUnderReview: 'is being reviewed by our moderation team. We\'ll notify you once it\'s resolved.',
-    reportApproved: 'has been reviewed and the content has been removed. Thank you for helping keep our community safe.',
-    reportRejected: 'has been reviewed and determined not to violate our community guidelines.',
   },
 
   // Map

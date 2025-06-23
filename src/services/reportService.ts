@@ -115,6 +115,7 @@ class ReportService {
    */  getReasonText(reason: ReportReason): string {
     const reasonTexts = {
       [ReportReason.INAPPROPRIATE_CONTENT]: 'Inappropriate Content',
+      [ReportReason.SPAM]: 'Spam',
       [ReportReason.VIOLENCE]: 'Violence or Dangerous Content',
       [ReportReason.GORE]: 'Gore or Blood',
       [ReportReason.BLOOD]: 'Blood Content',

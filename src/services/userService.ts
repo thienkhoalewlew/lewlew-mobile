@@ -86,9 +86,12 @@ export const updateUserAvatar = async (localAvatarUri: string) => {
       return { error: 'Failed to upload avatar to Cloudinary' };
     }
     
-    // 3. Cập nhật URL avatar trên backend
+    // 3. Cập nhật URL avatar trên backend sử dụng API mới
     // Backend sẽ tự động lưu thông tin ảnh vào uploads collection
-    const updateResult = await api.auth.updateAvatar(cloudinaryUrl);
+    const updateResult = await api.auth.updateProfile({
+      updateType: 'avatar',
+      avatar: cloudinaryUrl
+    });
     
     if (updateResult.error) {
       return updateResult;
@@ -428,15 +431,12 @@ export const updateUserSettings = async (settings: {
   try {
     console.log('Updating settings with:', settings);
     
-    // Add required properties with default values
-    const completeSettings = {
+    // Sử dụng API mới updateProfile thay vì updateSettings
+    const response = await api.auth.updateProfile({
+      updateType: 'settings',
       notificationRadius: settings.notificationRadius,
-      pushNotifications: true, // Default to true
-      emailNotifications: true, // Default to true
       language: settings.language
-    };
-    
-    const response = await api.auth.updateSettings(completeSettings);
+    });
     
     if (response.error) {
       throw new Error(response.error);
@@ -456,7 +456,10 @@ export const updateUserSettings = async (settings: {
 
 export const updateUsername = async (username: string) => {
   try {
-    const response = await api.auth.updateUsername({ username });
+    const response = await api.auth.updateProfile({
+      updateType: 'username',
+      username
+    });
     if (response.data) {
       return mapBackendUserToAppUser(response.data);
     }
@@ -469,7 +472,10 @@ export const updateUsername = async (username: string) => {
 
 export const updateFullname = async (fullname: string) => {
   try {
-    const response = await api.auth.updateFullname({ fullname });
+    const response = await api.auth.updateProfile({
+      updateType: 'fullname',
+      fullname
+    });
     if (response.data) {
       return mapBackendUserToAppUser(response.data);
     }
@@ -482,7 +488,10 @@ export const updateFullname = async (fullname: string) => {
 
 export const updateBio = async (bio: string) => {
   try {
-    const response = await api.auth.updateBio({ bio });
+    const response = await api.auth.updateProfile({
+      updateType: 'bio',
+      bio
+    });
     if (response.error) {
       throw new Error(response.error);
     }
