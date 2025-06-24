@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, X, Image as ImageIcon } from 'lucide-react-native';
+import { Camera, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '../../components/Button';
@@ -33,11 +33,10 @@ export default function CreatePostScreen() {
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  
-  const [image, setImage] = useState<string | null>(null);
+    const [image, setImage] = useState<string | null>(null);
   const [caption, setCaption] = useState('');
   const [locationNameInput, setLocationNameInput] = useState('');
-    // Use reverse geocoding hook with detailed address level
+  const [showExpiryNotice, setShowExpiryNotice] = useState(false);  // Use reverse geocoding hook with detailed address level
   const {
     isLoading: isLoadingLocation,
     locationName: autoDetectedLocationName,
@@ -46,30 +45,19 @@ export default function CreatePostScreen() {
     error: locationError,
     getPreciseAddress,
     getAddressByLevel,
+    geocodingResult,
   } = useReverseGeocoding({
     autoUpdate: true,
-    addressLevel: 'detailed', // Use detailed level for better street info
+    addressLevel: 'detailed', // Use enhanced detailed level for complete address info
     onLocationNameChange: (name) => {
       if (name && !locationNameInput) {
         setLocationNameInput(name);
       }
     },
   });
-  
   const locationName = locationNameInput || autoDetectedLocationName || '';
   
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-    
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
-  };
+  // Remove pickImage function and only keep takePhoto
   
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -92,7 +80,7 @@ export default function CreatePostScreen() {
   const clearImage = () => {
     setImage(null);
   };
-    const handleCreatePost = async () => {
+  const handleCreatePost = async () => {
     // Prevent multiple submissions
     if (isLoading) {
       return;
@@ -121,8 +109,33 @@ export default function CreatePostScreen() {
       return;
     }
 
+    // Show 24h expiry notice BEFORE posting
+    Alert.alert(
+      t('posts.postExpiryNotice'), 
+      t('posts.postExpiryMessage'),
+      [
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+        },
+        {
+          text: t('common.ok'),
+          onPress: () => performCreatePost(),
+        }
+      ]
+    );
+  };
+
+  const performCreatePost = async () => {
+    // Double check required data again
+    if (!user || !image || !caption.trim() || !locationName.trim() || !currentLocation) {
+      Alert.alert(t('common.error'), t('posts.createPostError'));
+      return;
+    }
+
     try {
-      const result = await createPost({
+      // Create post using service directly since store interface doesn't match
+      const postData = {
         userId: user.id,
         imageUrl: image,
         caption,
@@ -131,24 +144,24 @@ export default function CreatePostScreen() {
           longitude: currentLocation.longitude,
           name: locationName,
         },
-      });
+      };
+      
+      const result = await createPost(postData as any); // Use any to bypass interface mismatch
       if (!result) {
         Alert.alert(t('common.error'), t('posts.createPostError'));
         return;
-      }
-
-      // Save location to history after successful post creation
+      }      // Save location to history after successful post creation
       await LocationHistoryService.addToHistory(
         locationName,
         currentLocation.latitude,
         currentLocation.longitude,
         locationName === autoDetectedLocationName
-      );
-
-      // Reset form
+      );      // Reset form
       setImage(null);
       setCaption('');
       setLocationNameInput('');
+      
+      // Show success message  
       Alert.alert(t('common.success'), t('posts.createPostSuccess'));
 
       // Navigate to home
@@ -181,22 +194,15 @@ export default function CreatePostScreen() {
                 <X size={20} color="white" />
               </TouchableOpacity>
             </View>
-          ) : (
+            ) : (
             <View style={styles.imagePickerContainer}>
               <TouchableOpacity 
-                style={styles.imagePickerButton}
-                onPress={pickImage}
-              >
-                <ImageIcon size={32} color={colors.primary} />
-                <Text style={styles.imagePickerText}>{t('posts.chooseFromGallery')}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.imagePickerButton}
+                style={styles.cameraOnlyButton}
                 onPress={takePhoto}
               >
-                <Camera size={32} color={colors.primary} />
+                <Camera size={48} color={colors.primary} />
                 <Text style={styles.imagePickerText}>{t('posts.takeAPhoto')}</Text>
+                <Text style={styles.imagePickerSubtext}>{t('posts.cameraOnly')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -218,6 +224,7 @@ export default function CreatePostScreen() {
             onLocationNameChange={setLocationNameInput}
             onRefreshLocation={refreshLocation}
             isLoading={isLoadingLocation}
+            geocodingResult={geocodingResult}
           />
             <Button
             title={t('posts.sharePost')}
@@ -300,12 +307,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderStyle: 'dashed',
-  },
-  imagePickerText: {
+  },  imagePickerText: {
     marginTop: 8,
     color: colors.primary,
     fontWeight: '500',
-  },  formGroup: {
+  },
+  imagePickerSubtext: {
+    marginTop: 4,
+    color: colors.textLight,
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  cameraOnlyButton: {
+    width: '100%',
+    height: 150,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+  },
+  formGroup: {
     marginBottom: 20,
   },
   label: {

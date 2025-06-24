@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "expo-app",
+    "name": "LewLew Social",
     "slug": "expo-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -25,7 +25,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.thienkhoalewlew.expoapp"
+      "package": "com.thienkhoalewlew.lewlewsocial"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -49,7 +49,13 @@
       "EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME": "ddhciwctm",
       "EXPO_PUBLIC_CLOUDINARY_API_KEY": "119997377186115",
       "EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET": "lewlew",
-      "EXPO_PUBLIC_CLOUDINARY_FOLDER": "lewlew_unsigned"
+      "EXPO_PUBLIC_CLOUDINARY_FOLDER": "lewlew_unsigned",
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "a2e4fa26-a527-4462-9cd4-ca5c1d99e2e6"
+      }
     }
   }
 }

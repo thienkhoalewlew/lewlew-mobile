@@ -13,6 +13,8 @@ import {
 import { MapPin, RefreshCw, Edit3, Check, X, Clock, Search } from 'lucide-react-native';
 import { colors } from '../constants/colors';
 import { LocationHistoryService, LocationHistory } from '../services/locationHistoryService';
+import { GeocodingResult } from '../services/geocodingService';
+import { useTranslation } from '../i18n';
 
 interface LocationInputProps {
   currentLocation: { latitude: number; longitude: number } | null;
@@ -22,6 +24,7 @@ interface LocationInputProps {
   onRefreshLocation: () => Promise<void>;
   isLoading?: boolean;
   showDetailedInfo?: boolean;
+  geocodingResult?: GeocodingResult | null;
 }
 
 export const LocationInput: React.FC<LocationInputProps> = ({
@@ -32,7 +35,9 @@ export const LocationInput: React.FC<LocationInputProps> = ({
   onRefreshLocation,
   isLoading = false,
   showDetailedInfo = true,
+  geocodingResult = null,
 }) => {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [tempLocationName, setTempLocationName] = useState(locationName);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -212,9 +217,9 @@ export const LocationInput: React.FC<LocationInputProps> = ({
   );
 
   return (
-    <View style={styles.container}>
+  <View style={styles.container}>
       <View style={styles.labelRow}>
-        <Text style={styles.label}>Location</Text>
+        <Text style={styles.label}>{t('posts.location')}</Text>
         <View style={styles.actionButtons}>
           {!isEditing && (
             <>
@@ -224,7 +229,7 @@ export const LocationInput: React.FC<LocationInputProps> = ({
                 disabled={isLoading}
               >
                 <Clock size={14} color={colors.primary} />
-                <Text style={styles.actionButtonText}>History</Text>
+                <Text style={styles.actionButtonText}>{t('posts.locationHistory')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -233,7 +238,7 @@ export const LocationInput: React.FC<LocationInputProps> = ({
                 disabled={isLoading}
               >
                 <Edit3 size={14} color={colors.primary} />
-                <Text style={styles.actionButtonText}>Edit</Text>
+                <Text style={styles.actionButtonText}>{t('posts.editLocation')}</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[
@@ -260,9 +265,8 @@ export const LocationInput: React.FC<LocationInputProps> = ({
                 </Animated.View>
                 <Text style={[
                   styles.actionButtonText, 
-                  { color: isRefreshing ? colors.textLight : colors.primary }
-                ]}>
-                  {isRefreshing ? 'Updating...' : 'Refresh'}
+                  { color: isRefreshing ? colors.textLight : colors.primary }                ]}>
+                  {isRefreshing ? t('common.loading') : t('posts.refreshLocation')}
                 </Text>
               </TouchableOpacity>
             </>
@@ -309,11 +313,13 @@ export const LocationInput: React.FC<LocationInputProps> = ({
           />
         ) : (
           <Text style={styles.locationText}>
-            {locationName || (currentLocationName ? 'Auto-detected location' : 'No location set')}
+            {geocodingResult && geocodingResult.formattedAddress ? 
+              geocodingResult.formattedAddress : 
+              (locationName || (currentLocationName ? 'Auto-detected location' : 'No location set'))
+            }
           </Text>
         )}
       </Animated.View>
-
       {/* Location info */}
       <View style={styles.locationInfoContainer}>
         {currentLocation && (
@@ -321,7 +327,51 @@ export const LocationInput: React.FC<LocationInputProps> = ({
             📍 Coordinates: {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
           </Text>
         )}
-          {currentLocationName && !isEditing && (
+        {/* Enhanced address details */}
+        {geocodingResult && showDetailedInfo && (
+          <View style={styles.addressDetailsContainer}>
+            {/* Street address */}
+            {geocodingResult.streetNumber && geocodingResult.street ? (
+              <Text style={styles.addressDetail}>
+                🏠 {geocodingResult.streetNumber} {geocodingResult.street}
+              </Text>
+            ) : geocodingResult.street ? (
+              <Text style={styles.addressDetail}>
+                🏠 {geocodingResult.street}
+              </Text>
+            ) : geocodingResult.name ? (
+              <Text style={styles.addressDetail}>
+                🏠 {geocodingResult.name}
+              </Text>
+            ) : null}
+            
+            {/* District - show if available */}
+            {geocodingResult.district && (
+              <Text style={styles.addressDetail}>
+                🏘️ {geocodingResult.district}
+              </Text>
+            )}
+            
+            {/* City - prefer city over region, but show region if no city */}
+            {geocodingResult.city ? (
+              <Text style={styles.addressDetail}>
+                🏙️ {geocodingResult.city}
+              </Text>
+            ) : geocodingResult.region ? (
+              <Text style={styles.addressDetail}>
+                🏙️ {geocodingResult.region}
+              </Text>
+            ) : null}
+            
+            {/* Additional region info only if different from city */}
+            {geocodingResult.region && geocodingResult.city && geocodingResult.region !== geocodingResult.city && (
+              <Text style={styles.addressDetail}>
+                �️ {geocodingResult.region}
+              </Text>
+            )}
+          </View>
+        )}
+          {currentLocationName && !isEditing && !geocodingResult && (
           <Text style={styles.locationDetected}>
             🎯 Auto-detected: {currentLocationName}
           </Text>
@@ -457,11 +507,20 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginTop: 2,
     fontWeight: '500',
-  },
-  locationError: {
+  },  locationError: {
     fontSize: 11,
     color: colors.error,
     marginTop: 2,
+  },
+  addressDetailsContainer: {
+    marginTop: 4,
+    paddingLeft: 8,
+  },
+  addressDetail: {
+    fontSize: 11,
+    color: colors.textLight,
+    marginTop: 1,
+    lineHeight: 16,
   },
   
   // Modal styles

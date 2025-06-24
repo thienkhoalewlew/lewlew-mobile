@@ -45,13 +45,12 @@ export class GeocodingService {
 
       if (reverseGeocodedLocation && reverseGeocodedLocation.length > 0) {
         const location = reverseGeocodedLocation[0];
-        
-        return {
+          return {
           name: location.name || undefined,
           street: location.street || undefined,
           streetNumber: location.streetNumber || undefined,
           district: location.district || undefined,
-          city: location.city || undefined,
+          city: location.city || location.region || undefined, // Fallback to region if no city
           region: location.region || undefined,
           country: location.country || undefined,
           postcode: location.postalCode || undefined,
@@ -79,29 +78,46 @@ export class GeocodingService {
       }
       
       const data = await response.json();
-      
-      if (data && data.address) {
+        if (data && data.address) {
         const addr = data.address;
+          // Handle Vietnamese administrative divisions
+        const getDistrict = () => {
+          return addr.suburb || addr.district || addr.neighbourhood || 
+                 addr.quarter || addr.city_district || addr.town || 
+                 addr.county || addr.municipality || 
+                 addr.subdistrict || addr.ward; // Add more Vietnamese specific terms
+        };
+          const getCity = () => {
+          return addr.city || addr.province || addr.state || 
+                 addr.region || addr.country_subdivision ||
+                 addr.administrative_area_level_1;
+        };
         
-        return {
+        const result = {
           name: addr.amenity || addr.shop || addr.building || addr.tourism || addr.leisure || undefined,
-          street: addr.road || addr.street || undefined,
+          street: addr.road || addr.street || addr.pedestrian || addr.footway || undefined,
           streetNumber: addr.house_number || undefined,
-          district: addr.suburb || addr.district || addr.neighbourhood || addr.quarter || undefined,
-          city: addr.city || addr.town || addr.village || addr.municipality || undefined,
-          region: addr.state || addr.province || addr.county || undefined,
+          district: getDistrict(),
+          city: getCity(),
+          region: addr.state || addr.province || addr.region || undefined,
           country: addr.country || undefined,
           postcode: addr.postcode || undefined,
           formattedAddress: data.display_name || 'Unknown location',
         };
+        
+        // Post-process: if no city but have region, use region as city
+        if (!result.city && result.region) {
+          result.city = result.region;
+        }
+        
+        return result;
       }
       
       return null;
     } catch (error) {
       throw error;
     }
-  }
-  /**
+  }  /**
    * Format address from location data
    */
   private static formatAddress(location: any): string {
@@ -127,8 +143,8 @@ export class GeocodingService {
       addressParts.push(location.region || location.state || location.province);
     }
     
-    // Return the most relevant parts (limit to 4 to include street details)
-    const relevantParts = addressParts.slice(0, 4);
+    // Return more parts for better detail (increase from 4 to 6)
+    const relevantParts = addressParts.slice(0, 6);
     return relevantParts.length > 0 ? relevantParts.join(', ') : 'Unknown location';
   }
   /**
@@ -169,9 +185,8 @@ export class GeocodingService {
   static getDetailedAddress(result: GeocodingResult): string {
     return result.formattedAddress;
   }
-
   /**
-   * Get precise address (includes street number and name)
+   * Get precise address (includes street number and name with district and city)
    */
   static getPreciseAddress(result: GeocodingResult): string {
     const parts = [];
@@ -183,23 +198,31 @@ export class GeocodingService {
       parts.push(result.street);
     }
     
+    // Always include district for Vietnamese addresses
     if (result.district) {
       parts.push(result.district);
     }
     
+    // Always include city
     if (result.city) {
       parts.push(result.city);
+    }
+    
+    // Add region/province if available and different from city
+    if (result.region && result.region !== result.city) {
+      parts.push(result.region);
     }
     
     // If no street info, use name as fallback
     if (parts.length === 0 && result.name) {
       parts.push(result.name);
+      if (result.district) parts.push(result.district);
       if (result.city) parts.push(result.city);
+      if (result.region && result.region !== result.city) parts.push(result.region);
     }
     
     return parts.length > 0 ? parts.join(', ') : result.formattedAddress;
   }
-
   /**
    * Get address with different levels of detail
    */
@@ -216,7 +239,29 @@ export class GeocodingService {
         return this.getShortAddress(result);
         
       case 'detailed':
-        return this.getPreciseAddress(result);
+        // Enhanced detailed address with district and city
+        const parts = [];
+        
+        // Street info
+        if (result.streetNumber && result.street) {
+          parts.push(`${result.streetNumber} ${result.street}`);
+        } else if (result.street) {
+          parts.push(result.street);
+        } else if (result.name) {
+          parts.push(result.name);
+        }
+        
+        // District (Quận/Huyện)
+        if (result.district) {
+          parts.push(result.district);
+        }
+        
+        // City (Thành phố/Tỉnh)
+        if (result.city) {
+          parts.push(result.city);
+        }
+        
+        return parts.length > 0 ? parts.join(', ') : result.formattedAddress;
         
       case 'full':
         return result.formattedAddress;

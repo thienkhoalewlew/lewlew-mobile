@@ -225,6 +225,9 @@ export default {
     selectPhoto: 'Chọn ảnh',
     takePhoto: 'Chụp ảnh',
     location: 'Vị trí',
+    locationHistory: 'Lịch sử',
+    editLocation: 'Chỉnh sửa',
+    refreshLocation: 'Làm mới',
     tagFriends: 'Gắn thẻ bạn bè',
     
     // PostCard specific translations
@@ -276,6 +279,7 @@ export default {
     createNewPost: 'Tạo bài viết mới',
     chooseFromGallery: 'Chọn từ thư viện',
     takeAPhoto: 'Chụp ảnh',
+    cameraOnly: 'Chỉ có thể chụp ảnh mới',
     caption: 'Chú thích',
     writeCaptionPlaceholder: 'Viết chú thích...',
     permissionNeeded: 'Cần quyền truy cập',
@@ -290,6 +294,8 @@ export default {
     unableToGetLocation: 'Không thể lấy vị trí hiện tại của bạn',
     createPostError: 'Không thể tạo bài viết. Vui lòng thử lại.',
     createPostSuccess: 'Bài viết của bạn đã được tạo thành công!',
+    postExpiryNotice: 'Thông báo quan trọng',
+    postExpiryMessage: 'Bài viết này sẽ tự động biến mất sau 24 giờ từ khi đăng. Bạn có chắc chắn muốn đăng không?',
     mustBeLoggedIn: 'Bạn phải đăng nhập để tạo bài viết',
     // Post detail screen
     postExpiredTitle: 'Thông báo',
