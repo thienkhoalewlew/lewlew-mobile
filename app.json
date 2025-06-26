@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "LewLew Social",
-    "slug": "lewlew-social",
+    "slug": "expo-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
