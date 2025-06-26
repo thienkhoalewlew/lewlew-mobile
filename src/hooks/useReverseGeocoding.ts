@@ -34,15 +34,6 @@ export const useReverseGeocoding = (options: UseReverseGeocodingOptions = {}) =>
       // Use the improved geocoding with fallback
       const result = await GeocodingService.reverseGeocodeWithFallback(lat, lng);
       if (result) {
-        // Debug log
-        console.log('=== Geocoding Result Debug ===');
-        console.log('Street Number:', result.streetNumber);
-        console.log('Street:', result.street);
-        console.log('District:', result.district);
-        console.log('City:', result.city);
-        console.log('Region:', result.region);
-        console.log('Formatted Address:', result.formattedAddress);
-        console.log('============================');
           // Use the specified address level
         const formattedAddress = GeocodingService.getAddressByLevel(result, addressLevel);
         // For location input, prefer the formatted address for better display

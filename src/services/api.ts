@@ -928,20 +928,7 @@ export const api = {
         return { error: 'Network error. Please check your connection.' };
       }
     },
-    /**
-     * Cập nhật profile người dùng (mới) - sử dụng 1 endpoint cho tất cả các loại cập nhật
-     * 
-     * Endpoint này thay thế tất cả các endpoint update riêng lẻ:
-     * - update_avatar -> updateType: 'avatar'
-     * - update_password -> updateType: 'password' 
-     * - update_fullname -> updateType: 'fullname'
-     * - update_username -> updateType: 'username'
-     * - update_bio -> updateType: 'bio'
-     * - update_settings -> updateType: 'settings'
-     * 
-     * @param data Object chứa updateType và các field tương ứng
-     * @returns Promise<ApiResponse<any>> Kết quả cập nhật
-     */
+
     updateProfile: async (data: {
       updateType: 'avatar' | 'password' | 'fullname' | 'username' | 'bio' | 'settings';
       avatar?: string;

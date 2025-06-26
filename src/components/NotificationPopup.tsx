@@ -78,7 +78,16 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
     }
   };
 
-  if (!notification) return null;
+  if (!notification) {
+    return null;
+  }
+
+  const displayName = senderName || t('notifications.someone');
+  const displayMessage = parseNotificationMessage(notification.message, t, notification.type) || t('notifications.newNotification');
+  
+  // Simple title based on notification type
+  const notificationTitle = notification.type === 'FRIEND_POST' 
+    ? (t('notifications.newPost')) : (t('notifications.newNotification'));
 
   return (
     <Animated.View 
@@ -104,18 +113,18 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
           ) : (
             <View style={styles.defaultAvatar}>
               <Text style={styles.avatarText}>
-                {senderName ? senderName.charAt(0).toUpperCase() : '?'}
+                {displayName.charAt(0).toUpperCase()}
               </Text>
             </View>
           )}
         </View>
         <View style={styles.textContainer}>
           <Text style={styles.title}>
-            {notification.type === 'FRIEND_POST' ? t('notifications.newPost') : t('notifications.newNotification')}
+            {notificationTitle}
           </Text>
           <Text style={styles.message} numberOfLines={2}>
-            <Text style={styles.senderName}>{senderName || t('notifications.someone')}</Text>
-            <Text>{' '}{parseNotificationMessage(notification.message, t)}</Text>
+            <Text style={styles.senderName}>{displayName}</Text>
+            <Text>{' '}{displayMessage}</Text>
           </Text>
         </View>
       </TouchableOpacity>

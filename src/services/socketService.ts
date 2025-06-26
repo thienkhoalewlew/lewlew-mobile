@@ -22,9 +22,7 @@ class SocketService {
       return;
     }
 
-    console.log(`Socket connect: Đang kết nối với token (${token.length} ký tự): ${token.substring(0, 15)}...`);
-
-    // Giải mã JWT token để kiểm tra
+  // Giải mã JWT token để kiểm tra
     try {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -32,12 +30,8 @@ class SocketService {
         atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
       );
       const payload = JSON.parse(jsonPayload);
-      console.log('Socket connect: Decoded token payload:', payload);
         if (!payload.userId && !payload.sub) {
         console.error('Socket connect: Token không chứa userId hoặc sub trong payload');
-      } else {
-        const effectiveUserId = payload.userId || payload.sub;
-        console.log('Socket connect: Sử dụng ID:', effectiveUserId);
       }
     } catch (error) {
       console.error('Socket connect: Lỗi giải mã token:', error);
@@ -45,7 +39,6 @@ class SocketService {
 
     // Tạo kết nối mới
     const socketUrl = API_URL.replace('/api', '');
-    console.log(`Socket connect: Đang kết nối tới ${socketUrl}`);
     
     this.socket = io(socketUrl, {
       auth: { token },
@@ -56,12 +49,12 @@ class SocketService {
 
     // Xử lý sự kiện kết nối
     this.socket.on('connect', () => {
-      console.log('Socket connected');
+      // Socket connected successfully
     });
     
     // Xử lý lỗi kết nối
     this.socket.on('connect_error', (error) => {
-      console.error('Socket connect_error:', error.message);
+      console.error('🔴 Socket connect_error:', error.message);
     });
 
     // Xử lý sự kiện nhận thông báo
@@ -69,19 +62,19 @@ class SocketService {
       const notification = mapBackendNotificationToAppNotification(notificationData);
       
       // Gọi các callback đã đăng ký
-      this.notificationCallbacks.forEach(callback => {
+      this.notificationCallbacks.forEach((callback) => {
         callback(notification);
       });
     });
 
     // Xử lý sự kiện ngắt kết nối
     this.socket.on('disconnect', () => {
-      console.log('Socket disconnected');
+      // Socket disconnected
     });
 
     // Xử lý lỗi
     this.socket.on('error', (error) => {
-      console.error('Socket error:', error);
+      console.error('❌ Socket error:', error);
     });
   }
 

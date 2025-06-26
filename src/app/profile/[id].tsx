@@ -86,6 +86,18 @@ export default function UserProfileScreen() {
       const response = await sendFriendRequest(profileUser.id);
       if (response.success) {
         setFriendStatus('pending');
+        // Update profileUser to mark current user as request sender
+        setProfileUser(prev => prev ? { 
+          ...prev, 
+          status: 'pending',
+          isRequestSender: true // Current user sent the request
+        } : null);
+        
+        // Fetch updated profile to get requestId
+        const updatedProfile = await getUserProfileById(profileUser.id);
+        if (updatedProfile) {
+          setProfileUser(updatedProfile);
+        }
       }
     }
     
@@ -93,15 +105,36 @@ export default function UserProfileScreen() {
   };
 
   const handleCancelRequest = async () => {
-    if (!profileUser?.requestId) return;
+    if (!profileUser) return;
     
     setIsLoading(true);
-    const response = await cancelFriendRequest(profileUser.requestId);
-    if (response.success) {
-      setFriendStatus('none');
-      // Update profileUser to remove requestId and isRequestSender
-      setProfileUser(prev => prev ? { ...prev, requestId: undefined, isRequestSender: undefined } : null);
+    
+    // If we have a requestId, use the specific cancel API
+    if (profileUser.requestId) {
+      const response = await cancelFriendRequest(profileUser.requestId);
+      if (response.success) {
+        setFriendStatus('none');
+        setProfileUser(prev => prev ? { 
+          ...prev, 
+          status: 'none',
+          requestId: undefined, 
+          isRequestSender: undefined 
+        } : null);
+      }
+    } else {
+      // If no requestId, use the general cancel friend request API with userId
+      const response = await cancelFriendRequest(profileUser.id);
+      if (response.success) {
+        setFriendStatus('none');
+        setProfileUser(prev => prev ? { 
+          ...prev, 
+          status: 'none',
+          requestId: undefined, 
+          isRequestSender: undefined 
+        } : null);
+      }
     }
+    
     setIsLoading(false);
   };
 

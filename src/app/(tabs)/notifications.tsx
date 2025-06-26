@@ -14,9 +14,9 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useNotificationStore } from '../../store/notificationStore';
+import { useAuthStore } from '../../store/authStore';
 import { Notification, NotificationType } from '../../types';
 import { colors } from '../../constants/colors';
 import { getUserById } from '@/src/services/userService';
@@ -28,7 +28,9 @@ import { parseNotificationMessage } from '../../utils/notificationParser';
 export default function NotificationsScreen() {
   const { showNotification } = useNotificationContext();
   const router = useRouter();
-  const insets = useSafeAreaInsets();  const { t, language } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const { user } = useAuthStore();
+  const { t, language } = useTranslation();
   const { 
     notifications, 
     isLoading, 
@@ -39,28 +41,21 @@ export default function NotificationsScreen() {
     const [refreshing, setRefreshing] = useState(false);
   const [userData, setUserData] = useState<Record<string, { avatar?: string, username?: string, fullname?: string }>>({});
   
+  // Helper function to handle profile navigation
+  const handleViewProfile = (userId: string) => {
+    // If viewing own profile, navigate to main profile tab
+    if (userId === user?.id) {
+      router.push('/(tabs)/profile');
+    } else {
+      router.push({
+        pathname: '/profile/[id]',
+        params: { id: userId }
+      });
+    }
+  };
+  
   useEffect(() => {
     loadNotifications();
-    
-    // Debug: Check if we have a valid auth token
-    const checkAuthToken = async () => {
-      try {
-        const authData = await AsyncStorage.getItem('auth-storage');
-        if (authData) {
-          const parsedData = JSON.parse(authData);
-          console.log('Auth token exists:', !!parsedData.state?.token);
-          if (parsedData.state?.token) {
-            console.log('Token starts with:', parsedData.state.token.substring(0, 15));
-          }
-        } else {
-          console.log('No auth data found in storage');
-        }
-      } catch (error) {
-        console.error('Error checking auth token:', error);
-      }
-    };
-    
-    checkAuthToken();
   }, []);
 
   // Effect để load user avatars khi notifications thay đổi
@@ -70,7 +65,6 @@ export default function NotificationsScreen() {
     }  }, [notifications]);
   
   const loadNotifications = async () => {
-    console.log('Loading notifications...');
     await fetchNotifications();
     // Sau khi fetch xong, lấy notifications mới nhất từ store để load avatars
     // Không dùng state notifications vì có thể chưa được update
@@ -84,14 +78,20 @@ export default function NotificationsScreen() {
       
       if (!notificationsToUse || notificationsToUse.length === 0) return;
       
-      // Lấy danh sách ID người gửi duy nhất
-      const userIds = [...new Set(notificationsToUse.map(n => n.senderId))];
+      // Lấy danh sách ID người gửi duy nhất, lọc bỏ các giá trị không hợp lệ
+      const userIds = [...new Set(
+        notificationsToUse
+          .map(n => n.senderId)
+          .filter(id => id && id !== 'system' && id !== '')
+      )];
+      
+      if (userIds.length === 0) return;
       
       // Sử dụng hàm getUserById từ userService để lấy thông tin người dùng
       const avatarsMap: Record<string, { avatar?: string, username?: string, fullname?: string }> = {};
       
-      await Promise.all(
-        userIds.map(async (userId) => {
+      const loadPromises = userIds.map(async (userId) => {
+        try {
           const user = await getUserById(userId);
           if (user) {
             avatarsMap[userId] = {
@@ -100,14 +100,23 @@ export default function NotificationsScreen() {
               fullname: user.fullname,
             };
           }
-        })
-      );
+        } catch (error) {
+          // Set default data for failed requests
+          avatarsMap[userId] = {
+            avatar: '',
+            username: '',
+            fullname: '',
+          };
+        }
+      });
       
-      console.log('Loaded avatars for users:', Object.keys(avatarsMap).length);
+      await Promise.all(loadPromises);
+      
       setUserData(avatarsMap);
     } catch (error) {
-      console.error('Error loading user avatars:', error);
-    }  };
+      // Error loading user avatars - continue with empty avatars
+    }
+  };
   
   const onRefresh = async () => {
     setRefreshing(true);
@@ -116,11 +125,8 @@ export default function NotificationsScreen() {
     setRefreshing(false);
   };
     const handleNotificationPress = async (notification: Notification) => {
-    console.log('Notification pressed:', notification.id, 'Read status:', notification.read);
-    
     // Đánh dấu là đã đọc nếu chưa đọc
     if (!notification.read) {
-      console.log('Marking notification as read...');
       await markAsRead(notification.id);
     }
     
@@ -130,13 +136,10 @@ export default function NotificationsScreen() {
       if (notification.postId) {
         // Kiểm tra xem postId có phải là một đối tượng không
         if (typeof notification.postId === 'object') {
-          console.error('Invalid postId format (object):', notification.postId);
           // Cố gắng lấy ID từ đối tượng nếu có thể
           const postIdObj = notification.postId as any;
           validPostId = postIdObj.id || postIdObj._id || '';
-          console.log('Converted postId to string:', validPostId);
         } else if (typeof notification.postId === 'string' && notification.postId.includes('[object Object]')) {
-          console.error('PostId contains [object Object]:', notification.postId);
           Alert.alert(t('notifications.notification'), t('notifications.invalidPostId'));
           return;
         } else {
@@ -168,20 +171,13 @@ export default function NotificationsScreen() {
       switch (notification.type) {
         case NotificationType.FRIEND_REQUEST:
           // Mở profile người gửi lời mời kết bạn thay vì chuyển đến trang friends
-          router.push({
-            pathname: '/profile/[id]',
-            params: { id: notification.senderId }
-          });
+          handleViewProfile(notification.senderId);
           break;
         case NotificationType.FRIEND_ACCEPTED:
-          router.push({
-            pathname: '/profile/[id]',
-            params: { id: notification.senderId }
-          });
+          handleViewProfile(notification.senderId);
           break;
           case NotificationType.POST_LIKE:
           if (validPostId) {
-            console.log('Navigating to post with ID:', validPostId);
             router.push({
               pathname: '/post/[id]',
               params: { id: validPostId }
@@ -192,7 +188,6 @@ export default function NotificationsScreen() {
           break;
           case NotificationType.POST_COMMENT:
           if (validPostId) {
-            console.log('Navigating to post with ID:', validPostId, 'and comment:', validCommentId);
             // Chuyển đến bài đăng và truyền commentId để có thể scroll đến comment đó
             router.push({
               pathname: '/post/[id]',
@@ -207,7 +202,6 @@ export default function NotificationsScreen() {
           break;
         case NotificationType.COMMENT_LIKE:
           if (validPostId) {
-            console.log('Navigating to post with ID:', validPostId, 'for comment like');
             // Mở bài viết khi ai đó like comment
             router.push({
               pathname: '/post/[id]',
@@ -223,7 +217,6 @@ export default function NotificationsScreen() {
           case NotificationType.POST_VIRAL:
         case NotificationType.FRIEND_POST:
           if (validPostId) {
-            console.log('Navigating to post with ID:', validPostId);
             router.push({
               pathname: '/post/[id]',
               params: { id: validPostId }
@@ -235,7 +228,6 @@ export default function NotificationsScreen() {
         case NotificationType.SYSTEM_NOTIFICATION:
           // For system notifications, try to navigate to the post if available
           if (validPostId) {
-            console.log('Navigating to post from system notification with ID:', validPostId);
             router.push({
               pathname: '/post/[id]',
               params: { id: validPostId }
@@ -247,7 +239,6 @@ export default function NotificationsScreen() {
           break;
       }
     } catch (error) {
-      console.error('Error navigating from notification:', error);
       Alert.alert(t('notifications.notification'), t('notifications.errorOpeningNotification'));
     }
   };
@@ -271,6 +262,15 @@ export default function NotificationsScreen() {
     // Check if this is a system notification
     const isSystemNotification = !item.senderId || item.senderId === '' || item.senderId === 'system';
     
+    // Get user data with fallbacks
+    const senderData = userData[item.senderId] || {};
+    const displayName = isSystemNotification 
+      ? t('notifications.system')
+      : (senderData?.fullname || senderData?.username || t('notifications.someone'));
+    
+    // Parse message with fallback
+    const parsedMessage = parseNotificationMessage(item.message, t, item.type) || t('notifications.newNotification');
+    
     return (
       <TouchableOpacity
         style={[styles.notificationItem, !item.read && styles.unreadItem]}
@@ -282,9 +282,9 @@ export default function NotificationsScreen() {
             <View style={[styles.avatar, styles.systemAvatar]}>
               <Text style={styles.systemAvatarText}>⚙️</Text>
             </View>
-          ) : userData[item.senderId]?.avatar ? (
+          ) : senderData?.avatar ? (
             <Image 
-              source={{ uri: userData[item.senderId]?.avatar }} 
+              source={{ uri: senderData.avatar }} 
               style={styles.avatar} 
             />
           ) : (
@@ -303,14 +303,9 @@ export default function NotificationsScreen() {
         <View style={styles.contentContainer}>
           <Text style={styles.message}>
             <Text style={styles.username}>
-              {isSystemNotification 
-                ? t('notifications.system')
-                : (userData[item.senderId]?.username || 
-                   userData[item.senderId]?.fullname || 
-                   t('notifications.someone'))
-              }
+              {displayName}
             </Text>
-            <Text>{' '}{parseNotificationMessage(item.message, t)}</Text>
+            <Text>{' '}{parsedMessage}</Text>
           </Text>
           <Text style={styles.time}>{formatTime(new Date(item.createdAt))}</Text>
         </View>
@@ -328,10 +323,7 @@ export default function NotificationsScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>{t('notifications.notifications')}</Text>
         {notifications.length > 0 && (
-          <TouchableOpacity onPress={async () => {
-            console.log('Mark all as read button pressed');
-            await markAllAsRead();
-          }}>
+          <TouchableOpacity onPress={markAllAsRead}>
             <Text style={styles.markAllText}>{t('notifications.markAllAsRead')}</Text>
           </TouchableOpacity>
         )}

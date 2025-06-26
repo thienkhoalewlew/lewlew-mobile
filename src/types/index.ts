@@ -169,6 +169,10 @@ export enum NotificationType {
   POST_VIRAL = 'POST_VIRAL',
   FRIEND_POST = 'FRIEND_POST',
   SYSTEM_NOTIFICATION = 'SYSTEM_NOTIFICATION',
+  POST_REMOVED = 'post_removed',
+  REPORT_APPROVED = 'report_approved',
+  REPORT_REJECTED = 'report_rejected',
+  REPORT_UNDER_REVIEW = 'report_under_review',
 }
 
 export interface NotificationState {

@@ -41,36 +41,37 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => {
       disconnectSocket();
     };
-  }, [isAuthenticated, token]);  // Hiển thị thông báo
+  }, [isAuthenticated, token]);
+  
+  // Hiển thị thông báo
   const showNotification = async (notification: Notification) => {
-    console.log('NotificationProvider: Showing notification for senderId:', notification.senderId);
+    // Validate notification data
+    if (!notification || !notification.id) {
+      console.warn('⚠️ NotificationProvider: Invalid notification data received');
+      return;
+    }
+    
     setActiveNotification(notification);
     
     // Check if this is a system notification (no senderId)
     if (!notification.senderId || notification.senderId === '' || notification.senderId === 'system') {
       setSenderName('System');
       setSenderAvatar('');
-      console.log('NotificationProvider: System notification detected, using "System" as sender');
       return;
     }
     
     // Fetch sender information for user notifications
     try {
       const user = await getUserById(notification.senderId);
-      console.log('NotificationProvider: Retrieved user data:', user);
       
       if (user) {
-        setSenderName(user.username || user.fullname || 'Someone');
+        setSenderName(user.fullname || user.username || 'Someone');
         setSenderAvatar(user.avatar || '');
-        console.log('NotificationProvider: Set sender name:', user.username || user.fullname || 'Someone');
-        console.log('NotificationProvider: Set sender avatar:', user.avatar || 'No avatar');
       } else {
         setSenderName('Someone');
         setSenderAvatar('');
-        console.log('NotificationProvider: No user found, setting defaults');
       }
     } catch (error) {
-      console.error('NotificationProvider: Error fetching sender information:', error);
       setSenderName('Someone');
       setSenderAvatar('');
     }

@@ -71,7 +71,12 @@ export default function FriendsScreen() {
   };
   
   const handleViewProfile = (userId: string) => {
-    router.push(`/profile/${userId}`);
+    // If viewing own profile, navigate to main profile tab
+    if (userId === user?.id) {
+      router.push('/(tabs)/profile');
+    } else {
+      router.push(`/profile/${userId}`);
+    }
   };
 
   const renderUserItem = ({ item }: { item: User }) => (

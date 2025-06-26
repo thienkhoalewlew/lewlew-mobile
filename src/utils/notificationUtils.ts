@@ -26,8 +26,8 @@ export const useNotificationMessageTranslation = () => {
   const { t } = useTranslation();
   console.warn('useNotificationMessageTranslation is deprecated. Use parseNotificationMessage from notificationParser.ts instead');
   
-  const translateMessage = (message: string): string => {
-    return parseNotificationMessage(message, t);
+  const translateMessage = (message: string, notificationType?: string): string => {
+    return parseNotificationMessage(message, t, notificationType);
   };
   
   return { translateMessage };

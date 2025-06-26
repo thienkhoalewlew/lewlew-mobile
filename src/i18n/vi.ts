@@ -438,10 +438,22 @@ export default {
     commentLike: 'đã thích bình luận của bạn',
     nearbyPost: 'đã đăng bài gần bạn',
     friendPost: 'đã đăng bài viết mới',
+    // Additional fallback messages
+    like: 'đã thích bài viết của bạn',
+    comment: 'đã bình luận bài viết của bạn',
+    friend_request: 'đã gửi lời mời kết bạn cho bạn',
+    friend_accept: 'đã chấp nhận lời mời kết bạn của bạn',
+    post_viral: 'đã đăng bài viết hot',
+    system_notification: 'Thông báo hệ thống',
     reportApproved: 'Báo cáo của bạn về "{{reportReason}}" đã được xem xét và nội dung đã bị xóa. Cảm ơn bạn đã giúp giữ cộng đồng an toàn.',
     reportRejected: 'Báo cáo của bạn về "{{reportReason}}" đã được xem xét và được xác định không vi phạm quy tắc cộng đồng của chúng tôi.',
     reportRejectedWithNotes: 'Báo cáo của bạn về "{{reportReason}}" đã được xem xét và được xác định không vi phạm quy tắc cộng đồng của chúng tôi. Ghi chú của quản trị viên: {{adminNotes}}',
     reportUnderReview: 'Báo cáo của bạn về "{{reportReason}}" đang được nhóm kiểm duyệt xem xét. Chúng tôi sẽ thông báo khi có kết quả.',
+    
+    // Simple report notifications without parameters
+    reportApprovedSimple: 'Báo cáo đã được chấp nhận và xử lý. Cảm ơn bạn đã giúp giữ cộng đồng an toàn.',
+    reportRejectedSimple: 'Báo cáo đã được xem xét và được xác định không vi phạm quy tắc cộng đồng.',
+    reportUnderReviewSimple: 'Báo cáo đang được nhóm kiểm duyệt xem xét. Chúng tôi sẽ thông báo khi có kết quả.',
     
     // System notifications for post removal
     postRemovedForViolation: 'Bài viết của bạn đã bị xóa vì vi phạm nguyên tắc cộng đồng của chúng tôi',

@@ -29,6 +29,7 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="myapp"/>
         <data android:scheme="com.thienkhoalewlew.expoapp"/>
+        <data android:scheme="com.thienkhoalewlew.lewlewsocial"/>
       </intent-filter>
     </activity>
   </application>

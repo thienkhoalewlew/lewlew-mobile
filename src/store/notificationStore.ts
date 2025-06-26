@@ -21,11 +21,8 @@ export const useNotificationStore = create<NotificationState>()(
       socket: null,      fetchNotifications: async () => {
         set({ isLoading: true, error: null });
         try {
-          console.log('NotificationStore: Fetching notifications...');
           const notifications = await notificationService.getNotifications();
           const unreadCount = notifications.filter(n => !n.read).length;
-          
-          console.log(`NotificationStore: Fetched ${notifications.length} notifications (${unreadCount} unread)`);
           
           set({ 
             notifications, 
@@ -34,17 +31,14 @@ export const useNotificationStore = create<NotificationState>()(
           });
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to fetch notifications';
-          console.error('NotificationStore: Error fetching notifications:', errorMessage);
           set({ error: errorMessage, isLoading: false });
         }
       },
         markAsRead: async (notificationId: string) => {
         try {
-          console.log('NotificationStore: Marking notification as read:', notificationId);
           const success = await notificationService.markNotificationAsRead(notificationId);
           
           if (success) {
-            console.log('NotificationStore: Successfully marked notification as read');
             // Update local state
             set(state => {
               const updatedNotifications = state.notifications.map(notification =>
@@ -54,24 +48,18 @@ export const useNotificationStore = create<NotificationState>()(
               );
               const newUnreadCount = updatedNotifications.filter(n => !n.read).length;
               
-              console.log('NotificationStore: Updated unread count:', newUnreadCount);
-              
               return {
                 notifications: updatedNotifications,
                 unreadCount: newUnreadCount
               };
             });
-          } else {
-            console.error('NotificationStore: Failed to mark notification as read');
           }
         } catch (error) {
-          console.error('NotificationStore: Error marking notification as read:', error);
         }
-      },      markAllAsRead: async () => {
+      },
+      markAllAsRead: async () => {
         try {
-          console.log('NotificationStore: Marking all notifications as read...');
           const success = await notificationService.markAllNotificationsAsRead();
-          console.log('NotificationStore: markAllNotificationsAsRead returned:', success);
           
           if (success) {
             // Update local state
@@ -79,12 +67,8 @@ export const useNotificationStore = create<NotificationState>()(
               notifications: state.notifications.map(n => ({ ...n, read: true })),
               unreadCount: 0
             }));
-            console.log('NotificationStore: All notifications marked as read successfully, local state updated');
-          } else {
-            console.error('NotificationStore: Failed to mark all notifications as read - API call failed');
           }
         } catch (error) {
-          console.error('NotificationStore: Error marking all notifications as read:', error);
         }
       },
       
@@ -113,6 +97,12 @@ export const useNotificationStore = create<NotificationState>()(
           const exists = state.notifications.some(n => n.id === notification.id);
           
           if (exists) return state;
+          
+          // Validate notification data
+          if (!notification.id || !notification.message) {
+            console.warn('Invalid notification data received:', notification);
+            return state;
+          }
           
           const updatedNotifications = [notification, ...state.notifications];
           const unreadCount = updatedNotifications.filter(n => !n.read).length;

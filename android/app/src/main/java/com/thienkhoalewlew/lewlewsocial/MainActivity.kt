@@ -1,4 +1,4 @@
-package com.thienkhoalewlew.expoapp
+package com.thienkhoalewlew.lewlewsocial
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

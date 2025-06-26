@@ -43,9 +43,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      console.log('Fetching profile...');
       const profile = await getCurrentUserProfile();
-      console.log('Fetched profile:', profile);
       if (profile) {
         await loadUserPosts();
       }
@@ -57,12 +55,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (currentUser) {
-      // Debug: In ra toàn bộ posts để kiểm tra
-      console.log('All posts in store:', posts.map(p => ({id: p.id, userId: p.userId})));
-      console.log('Current user:', {id: currentUser.id, fullname: currentUser.fullname});
-      
       const filteredPosts = posts.filter(post => post.userId === currentUser.id);
-      console.log('Filtered posts count:', filteredPosts.length);
       setUserPosts(filteredPosts);
     }
   }, [currentUser, posts]);
@@ -75,7 +68,6 @@ export default function ProfileScreen() {
   }, [currentUser]);
   
   const loadUserPosts = async () => {
-    console.log('Loading user posts...');
     try {
       setRefreshing(true);
       const result = await getUserPosts();
@@ -90,7 +82,6 @@ export default function ProfileScreen() {
   };
 
   const handleRefresh = async () => {
-    console.log('Refreshing profile...');
     await loadUserPosts();
   };
 

@@ -137,11 +137,6 @@ export const mapBackendPostToAppPost = (backendPost: any): Post => {
     }
   }
   
-  console.log('Mapping post:', backendPost._id, 'userId:', userId);
-  console.log('Backend user:', backendPost.user); // Add debug log for backend data
-  console.log('Backend commentCount:', backendPost.commentCount); // Add debug log for commentCount
-  console.log('Mapped user:', user); // Add debug log for mapped data
-  
   return {
     id: backendPost._id || backendPost.id,
     userId: userId,

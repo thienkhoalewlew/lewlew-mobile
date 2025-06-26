@@ -1,4 +1,4 @@
-package com.thienkhoalewlew.expoapp
+package com.thienkhoalewlew.lewlewsocial
 
 import android.app.Application
 import android.content.res.Configuration

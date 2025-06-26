@@ -34,12 +34,8 @@ export default function HomeScreen() {
     getCurrentUserProfile();
   }, []);
   
-  // Get notification radius from user settings for debug
+  // Get notification radius from user settings
   const notificationRadius = currentUser?.settings?.notificationRadius;
-  useEffect(() => {
-    console.log('Current user settings in Home:', currentUser?.settings);
-    console.log('Using notification radius:', notificationRadius);
-  }, [currentUser, notificationRadius]);
   
   // Convert km to lat/long degrees (approximate)
   const kmToLatLongDelta = (km: number) => {
@@ -78,7 +74,6 @@ export default function HomeScreen() {
         
         // Ensure we have the latest user settings
         const radius = notificationRadius || 5;
-        console.log('Loading feed with radius:', radius, 'km');
         
         // Use radius from settings to calculate region
         const { latDelta, longDelta } = kmToLatLongDelta(radius);
@@ -91,8 +86,6 @@ export default function HomeScreen() {
           longitudeDelta: longDelta,
         };
         
-        console.log('Loading posts with region:', region);
-        
         const nearbyPosts = await getNearbyPosts(region);
         
         // Sort posts by creation time (newest first)
@@ -101,9 +94,7 @@ export default function HomeScreen() {
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
           setFeedPosts(sortedPosts);
-          console.log(`Loaded ${sortedPosts.length} nearby posts within ${radius}km`);
         } else {
-          console.log(`No nearby posts found within ${radius}km`);
           setFeedPosts([]);
         }
       } catch (error) {
@@ -125,9 +116,7 @@ export default function HomeScreen() {
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
           setFeedPosts(sortedPosts);
-          console.log(`Loaded ${sortedPosts.length} friend posts`);
         } else {
-          console.log('No friend posts found');
           setFeedPosts([]);
         }
       } catch (error) {

@@ -91,7 +91,13 @@ export const PostCard: React.FC<PostCardProps> = ({
   const handleViewProfile = () => {
     const userId = ensureStringId(post.userId);
     if (!userId) return;
-    router.push(`/profile/${userId}`);
+    
+    // If viewing own profile, navigate to main profile tab
+    if (userId === user?.id) {
+      router.push('/(tabs)/profile');
+    } else {
+      router.push(`/profile/${userId}`);
+    }
   };
   
   const handleViewLocation = () => {

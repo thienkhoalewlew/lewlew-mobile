@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
@@ -12,8 +12,6 @@ import {
   Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,18 +31,16 @@ export default function CreatePostScreen() {
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-    const [image, setImage] = useState<string | null>(null);
+  const [image, setImage] = useState<string | null>(null);
+  const [imageAspectRatio, setImageAspectRatio] = useState<number>(1);
   const [caption, setCaption] = useState('');
   const [locationNameInput, setLocationNameInput] = useState('');
-  const [showExpiryNotice, setShowExpiryNotice] = useState(false);  // Use reverse geocoding hook with detailed address level
   const {
     isLoading: isLoadingLocation,
     locationName: autoDetectedLocationName,
     currentLocation,
     refreshLocation,
     error: locationError,
-    getPreciseAddress,
-    getAddressByLevel,
     geocodingResult,
   } = useReverseGeocoding({
     autoUpdate: true,
@@ -67,18 +63,26 @@ export default function CreatePostScreen() {
     }
     
     const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
+      allowsEditing: false,
       quality: 1,
     });
     
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      const imageUri = result.assets[0].uri;
+      setImage(imageUri);
+      
+      Image.getSize(imageUri, (width, height) => {
+        setImageAspectRatio(width / height);
+      }, (error) => {
+        console.log('Error getting image size:', error);
+        setImageAspectRatio(1);
+      });
     }
   };
   
   const clearImage = () => {
     setImage(null);
+    setImageAspectRatio(1); // Reset aspect ratio
   };
   const handleCreatePost = async () => {
     // Prevent multiple submissions
@@ -186,7 +190,13 @@ export default function CreatePostScreen() {
           
           {image ? (
             <View style={styles.imageContainer}>
-              <Image source={{ uri: image }} style={styles.image} />
+              <Image 
+                source={{ uri: image }} 
+                style={[
+                  styles.image, 
+                  { aspectRatio: imageAspectRatio }
+                ]} 
+              />
               <TouchableOpacity 
                 style={styles.clearImageButton}
                 onPress={clearImage}
@@ -271,14 +281,15 @@ const styles = StyleSheet.create({
   imageContainer: {
     position: 'relative',
     width: '100%',
-    height: 300,
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 24,
   },
   image: {
     width: '100%',
-    height: '100%',
+    height: undefined,
+    aspectRatio: 1,
+    resizeMode: 'contain',
   },
   clearImageButton: {
     position: 'absolute',

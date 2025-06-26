@@ -57,15 +57,12 @@ export const useUserStore = create<UserState>()(
       getCurrentUserProfile: async () => {
         try {
           set({ isLoading: true, error: null });
-          console.log('Getting current user profile...');
           
           // First get saved settings from AsyncStorage
           const savedSettings = await AsyncStorage.getItem('user-settings');
-          console.log('Saved settings from AsyncStorage:', savedSettings);
           
           // Get user from backend
           const user = await userService.getCurrentUserProfile();
-          console.log('User from backend:', user);
             if (user) {
               let finalSettings = user.settings || {
               notificationRadius: 5,
@@ -79,7 +76,6 @@ export const useUserStore = create<UserState>()(
                 ...finalSettings,  // Backend settings as base
                 ...parsedSettings  // Local settings take priority
               };
-              console.log('Merged settings:', finalSettings);
             }
 
             // Create final user object with merged settings
@@ -88,7 +84,6 @@ export const useUserStore = create<UserState>()(
               settings: finalSettings
             };
 
-            console.log('Setting final user with settings:', finalUser);
             set({ currentUser: finalUser });
             return finalUser;
           }

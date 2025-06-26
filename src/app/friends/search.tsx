@@ -16,10 +16,12 @@ import { colors } from '../../constants/colors';
 import { searchUsers, getFriendRequests, respondToFriendRequest, getSentFriendRequests } from '../../services/userService';
 import { User } from '../../types';
 import { useTranslation } from '../../i18n';
+import { useAuthStore } from '../../store/authStore';
 
 export default function SearchFriendsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const { user } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
@@ -28,6 +30,16 @@ export default function SearchFriendsScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
   const [isLoadingSentRequests, setIsLoadingSentRequests] = useState(false);
+
+  // Helper function to handle profile navigation
+  const handleViewProfile = (userId: string) => {
+    // If viewing own profile, navigate to main profile tab
+    if (userId === user?.id) {
+      router.push('/(tabs)/profile');
+    } else {
+      router.push(`/profile/${userId}`);
+    }
+  };
   const [activeTab, setActiveTab] = useState<'received' | 'sent'>('received');
 
   // Debounced search
@@ -112,7 +124,7 @@ export default function SearchFriendsScreen() {
   const renderSearchResult = ({ item }: { item: User }) => (
     <TouchableOpacity 
       style={styles.userItem}
-      onPress={() => router.push(`/profile/${item.id}`)}
+      onPress={() => handleViewProfile(item.id)}
     >
       <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
       <View style={styles.userInfo}>
@@ -126,11 +138,11 @@ export default function SearchFriendsScreen() {
   );
   const renderFriendRequest = ({ item }: { item: User }) => (
     <View style={styles.userItem}>
-      <TouchableOpacity onPress={() => router.push(`/profile/${item.id}`)}>
+      <TouchableOpacity onPress={() => handleViewProfile(item.id)}>
         <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
       </TouchableOpacity>
       <View style={styles.userInfo}>
-        <TouchableOpacity onPress={() => router.push(`/profile/${item.id}`)}>
+        <TouchableOpacity onPress={() => handleViewProfile(item.id)}>
           <Text style={styles.username}>{item.fullname}</Text>
           <Text style={styles.userEmail}>@{item.username}</Text>
           {item.phoneNumber && (
@@ -157,11 +169,11 @@ export default function SearchFriendsScreen() {
   );
   const renderSentRequest = ({ item }: { item: User }) => (
     <View style={styles.userItem}>
-      <TouchableOpacity onPress={() => router.push(`/profile/${item.id}`)}>
+      <TouchableOpacity onPress={() => handleViewProfile(item.id)}>
         <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
       </TouchableOpacity>
       <View style={styles.userInfo}>
-        <TouchableOpacity onPress={() => router.push(`/profile/${item.id}`)}>
+        <TouchableOpacity onPress={() => handleViewProfile(item.id)}>
           <Text style={styles.username}>{item.fullname}</Text>
           <Text style={styles.userEmail}>@{item.username}</Text>
           {item.phoneNumber && (
